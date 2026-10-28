@@ -1,9 +1,10 @@
 package com.inversioneslr.backend.service.impl;
 
-import com.inversioneslr.backend.dto.request.RegistroHuespedRequest;
+import com.inversioneslr.backend.dto.request.RegistroUsuarioRequest;
 import com.inversioneslr.backend.dto.response.UsuarioResponse;
 import com.inversioneslr.backend.exception.CorreoYaRegistradoException;
 import com.inversioneslr.backend.mapper.UsuarioMapper;
+import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
 import com.inversioneslr.backend.model.enums.Rol;
@@ -41,19 +42,27 @@ public class RegistroUsuarioServiceImpl implements RegistroUsuarioService {
 
     @Override
     @Transactional
-    public UsuarioResponse registrarHuesped(RegistroHuespedRequest request) {
+    public UsuarioResponse registrarHuesped(RegistroUsuarioRequest request) {
+        return registrar(request, Rol.HUESPED);
+    }
+
+    @Override
+    @Transactional
+    public UsuarioResponse registrarAnfitrion(RegistroUsuarioRequest request) {
+        return registrar(request, Rol.ANFITRION);
+    }
+
+    // El rol lo fija el servidor según el caso de uso: el visitante nunca elige su rol.
+    private UsuarioResponse registrar(RegistroUsuarioRequest request, Rol rol) {
         String correo = normalizarCorreo(request.correo());
 
         if (usuarioRepository.existsByCorreoIgnoreCase(correo)) {
             throw correoDuplicado(correo);
         }
 
-        // El rol lo fija el servidor: el visitante nunca elige su rol.
-        Usuario usuario = new Usuario(
-                request.nombre().strip(),
-                correo,
-                passwordEncoder.encode(request.contrasena()),
-                Rol.HUESPED);
+        NombreCompleto nombre = NombreCompleto.normalizado(request.primerNombre(), request.segundoNombre(),
+                request.primerApellido(), request.segundoApellido());
+        Usuario usuario = new Usuario(nombre, correo, passwordEncoder.encode(request.contrasena()), rol);
 
         Usuario guardado;
         try {

@@ -32,7 +32,8 @@ public class AuditoriaServiceImpl implements AuditoriaService {
                 kv("resultado", ResultadoAuditoria.EXITOSO),
                 kv("usuario", usuario.getCorreo()),
                 kv("entidad", tipoEntidad),
-                kv("idEntidad", idEntidad));
+                kv("idEntidad", idEntidad),
+                kv("rol", usuario.getRol()));
     }
 
     @Override

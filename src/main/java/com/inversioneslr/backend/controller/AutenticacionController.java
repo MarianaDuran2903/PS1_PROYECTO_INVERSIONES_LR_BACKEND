@@ -1,6 +1,6 @@
 package com.inversioneslr.backend.controller;
 
-import com.inversioneslr.backend.dto.request.RegistroHuespedRequest;
+import com.inversioneslr.backend.dto.request.RegistroUsuarioRequest;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.dto.response.UsuarioResponse;
 import com.inversioneslr.backend.service.RegistroUsuarioService;
@@ -30,15 +30,29 @@ public class AutenticacionController {
 
     @PostMapping("/registro/huesped")
     @Operation(summary = "Registrar Huésped",
-            description = "Crea una cuenta con rol HUESPED. Ruta pública (RF-USR-001).")
+            description = "Crea una cuenta con rol HUESPED. Ruta pública (RF-USR-001, HU-001).")
     @ApiResponse(responseCode = "201", description = "Cuenta creada con rol Huésped",
             content = @Content(schema = @Schema(implementation = UsuarioResponse.class)))
-    @ApiResponse(responseCode = "400", description = "Datos inválidos o JSON mal formado",
+    @ApiResponse(responseCode = "400", description = "Datos inválidos, incompletos o JSON mal formado",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "El correo ya está registrado",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    public ResponseEntity<UsuarioResponse> registrarHuesped(@Valid @RequestBody RegistroHuespedRequest request) {
+    public ResponseEntity<UsuarioResponse> registrarHuesped(@Valid @RequestBody RegistroUsuarioRequest request) {
         UsuarioResponse respuesta = registroUsuarioService.registrarHuesped(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
+    }
+
+    @PostMapping("/registro/anfitrion")
+    @Operation(summary = "Registrar Anfitrión",
+            description = "Crea una cuenta con rol ANFITRION. Ruta pública (RF-USR-001, HU-002).")
+    @ApiResponse(responseCode = "201", description = "Cuenta creada con rol Anfitrión",
+            content = @Content(schema = @Schema(implementation = UsuarioResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Datos inválidos, incompletos o JSON mal formado",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "El correo ya está registrado",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<UsuarioResponse> registrarAnfitrion(@Valid @RequestBody RegistroUsuarioRequest request) {
+        UsuarioResponse respuesta = registroUsuarioService.registrarAnfitrion(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 }

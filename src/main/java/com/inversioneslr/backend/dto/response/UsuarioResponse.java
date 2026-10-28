@@ -9,13 +9,22 @@ public record UsuarioResponse(
         @Schema(description = "Identificador del usuario", example = "1")
         Long idUsuario,
 
-        @Schema(description = "Nombre completo", example = "Ana Pérez")
-        String nombre,
+        @Schema(description = "Primer nombre", example = "Carlos")
+        String primerNombre,
 
-        @Schema(description = "Correo electrónico", example = "ana.perez@correo.com")
+        @Schema(description = "Segundo nombre (nulo si no se registró)", example = "Andrés", nullable = true)
+        String segundoNombre,
+
+        @Schema(description = "Primer apellido", example = "Gómez")
+        String primerApellido,
+
+        @Schema(description = "Segundo apellido (nulo si no se registró)", example = "O'Neill", nullable = true)
+        String segundoApellido,
+
+        @Schema(description = "Correo electrónico", example = "carlos.gomez@correo.com")
         String correo,
 
-        @Schema(description = "Rol del usuario", example = "HUESPED")
+        @Schema(description = "Rol del usuario", example = "ANFITRION")
         Rol rol,
 
         @Schema(description = "Indica si la cuenta está activa", example = "true")
