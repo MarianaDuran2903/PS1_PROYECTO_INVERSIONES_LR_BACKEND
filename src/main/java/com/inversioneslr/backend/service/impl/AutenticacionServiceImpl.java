@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AutenticacionServiceImpl implements AutenticacionService {
@@ -45,7 +46,8 @@ public class AutenticacionServiceImpl implements AutenticacionService {
         this.tokenService = tokenService;
         this.auditoriaService = auditoriaService;
         this.usuarioMapper = usuarioMapper;
-        this.hashSimulado = passwordEncoder.encode("contrasena-simulada-para-correos-inexistentes");
+        // Valor aleatorio por arranque: no hay ninguna contraseña fija en el código.
+        this.hashSimulado = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
     @Override
