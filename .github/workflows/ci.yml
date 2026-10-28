@@ -1,17 +1,16 @@
 name: CI
 
+# Corre en cada push de cualquier rama (historia, feature, develop, main) y en cada PR.
 on:
   push:
-    branches: [main, develop]
+    branches: ['**']
   pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Compilar, probar y analizar
+    name: Compilar, probar, SonarCloud y Quality Gate
     runs-on: ubuntu-latest
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,14 +30,25 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Compilar y ejecutar pruebas (Testcontainers usa el Docker del runner)
+      - name: Compilar, ejecutar pruebas y generar cobertura (JaCoCo)
         run: mvn -B verify
 
-      - name: Análisis SonarCloud (Quality Gate)
-        if: ${{ env.SONAR_TOKEN != '' }}
+      - name: Verificar que existe el secret SONAR_TOKEN
         env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::Falta el secret SONAR_TOKEN (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      # Con qualitygate.wait=true, si el Quality Gate falla este paso termina en error (RNF-MAN-001).
+      - name: Análisis SonarCloud y Quality Gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
           -Dsonar.projectKey=MarianaDuran2903_PS1_PROYECTO_INVERSIONES_LR_BACKEND
           -Dsonar.qualitygate.wait=true
+          -Dsonar.qualitygate.timeout=300
