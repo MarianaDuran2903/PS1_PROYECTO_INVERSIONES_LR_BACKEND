@@ -1,6 +1,7 @@
 package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.model.EventoAuditoria;
+import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
 import com.inversioneslr.backend.model.enums.ResultadoAuditoria;
@@ -29,7 +30,8 @@ class AuditoriaServiceImplTest {
 
     @Test
     void registrarExito_guardaEventoConResultadoExitoso() {
-        Usuario usuario = new Usuario("Ana", "ana@correo.com", "hash", Rol.HUESPED);
+        Usuario usuario = new Usuario(new NombreCompleto("Ana", null, "Pérez", null),
+                "ana@correo.com", "hash", Rol.HUESPED);
 
         auditoriaService.registrarExito(usuario, AccionAuditoria.REGISTRO_USUARIO, "Usuario", "7");
 

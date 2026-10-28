@@ -35,7 +35,8 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/registro/huesped").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/registro/huesped", "/api/v1/auth/registro/anfitrion").permitAll()
                         .requestMatchers(RUTAS_DOCUMENTACION).permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())

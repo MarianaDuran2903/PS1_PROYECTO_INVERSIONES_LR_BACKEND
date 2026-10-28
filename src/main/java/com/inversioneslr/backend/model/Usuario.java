@@ -2,6 +2,7 @@ package com.inversioneslr.backend.model;
 
 import com.inversioneslr.backend.model.enums.Rol;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -22,8 +23,8 @@ public class Usuario {
     @Column(name = "id_usuario")
     private Long idUsuario;
 
-    @Column(name = "nombre", nullable = false, length = 120)
-    private String nombre;
+    @Embedded
+    private NombreCompleto nombre;
 
     @Column(name = "correo", nullable = false, length = 254)
     private String correo;
@@ -45,7 +46,7 @@ public class Usuario {
         // Requerido por JPA
     }
 
-    public Usuario(String nombre, String correo, String contrasenaHash, Rol rol) {
+    public Usuario(NombreCompleto nombre, String correo, String contrasenaHash, Rol rol) {
         this.nombre = nombre;
         this.correo = correo;
         this.contrasenaHash = contrasenaHash;
@@ -56,7 +57,7 @@ public class Usuario {
         return idUsuario;
     }
 
-    public String getNombre() {
+    public NombreCompleto getNombre() {
         return nombre;
     }
 

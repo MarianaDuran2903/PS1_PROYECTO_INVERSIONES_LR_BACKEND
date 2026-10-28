@@ -1,9 +1,10 @@
 package com.inversioneslr.backend.service.impl;
 
-import com.inversioneslr.backend.dto.request.RegistroHuespedRequest;
+import com.inversioneslr.backend.dto.request.RegistroUsuarioRequest;
 import com.inversioneslr.backend.dto.response.UsuarioResponse;
 import com.inversioneslr.backend.exception.CorreoYaRegistradoException;
 import com.inversioneslr.backend.mapper.UsuarioMapper;
+import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
 import com.inversioneslr.backend.model.enums.Rol;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.when;
 class RegistroUsuarioServiceImplTest {
 
     private static final String HASH = "$2a$10$hashDePrueba";
+    private static final String CONTRASENA = "Segura#123";
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -52,91 +54,139 @@ class RegistroUsuarioServiceImplTest {
     }
 
     @Test
-    @DisplayName("Dado un visitante con datos válidos, cuando se registra, entonces se crea la cuenta con rol Huésped")
+    @DisplayName("HU-001: dado un visitante con datos válidos, cuando se registra como Huésped, entonces la cuenta queda con rol Huésped")
     void registrarHuesped_datosValidos_creaCuentaConRolHuesped() {
-        when(usuarioRepository.existsByCorreoIgnoreCase("ana@correo.com")).thenReturn(false);
-        when(passwordEncoder.encode("Segura123")).thenReturn(HASH);
-        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(inv -> conId(inv.getArgument(0), 1L));
+        prepararRegistroExitoso("ana@correo.com", 1L);
 
-        UsuarioResponse respuesta = servicio.registrarHuesped(
-                new RegistroHuespedRequest("Ana Pérez", "ana@correo.com", "Segura123"));
+        UsuarioResponse respuesta = servicio.registrarHuesped(request("ana@correo.com"));
 
-        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
-        verify(usuarioRepository).saveAndFlush(captor.capture());
-        Usuario guardado = captor.getValue();
+        Usuario guardado = usuarioGuardado();
         assertThat(guardado.getRol()).isEqualTo(Rol.HUESPED);
         assertThat(guardado.getContrasenaHash()).isEqualTo(HASH);
         assertThat(guardado.isCuentaActiva()).isTrue();
         assertThat(guardado.isRestringido()).isFalse();
-
-        assertThat(respuesta.idUsuario()).isEqualTo(1L);
         assertThat(respuesta.rol()).isEqualTo(Rol.HUESPED);
-        assertThat(respuesta.nombre()).isEqualTo("Ana Pérez");
-        verify(auditoriaService).registrarExito(guardado, AccionAuditoria.REGISTRO_USUARIO,
-                RegistroUsuarioServiceImpl.ENTIDAD_USUARIO, "1");
+        assertThat(respuesta.idUsuario()).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("El correo se guarda en minúsculas y sin espacios, y el nombre sin espacios sobrantes")
-    void registrarHuesped_normalizaCorreoYNombre() {
-        when(usuarioRepository.existsByCorreoIgnoreCase("ana@correo.com")).thenReturn(false);
-        when(passwordEncoder.encode(anyString())).thenReturn(HASH);
-        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(inv -> conId(inv.getArgument(0), 2L));
+    @DisplayName("HU-002 criterio 1: dado un visitante con datos válidos, cuando se registra como Anfitrión, entonces la cuenta queda con rol Anfitrión")
+    void registrarAnfitrion_datosValidos_creaCuentaConRolAnfitrion() {
+        prepararRegistroExitoso("carlos@correo.com", 5L);
 
-        UsuarioResponse respuesta = servicio.registrarHuesped(
-                new RegistroHuespedRequest("  Ana Pérez ", "  Ana@Correo.COM ", "Segura123"));
+        UsuarioResponse respuesta = servicio.registrarAnfitrion(request("carlos@correo.com"));
+
+        Usuario guardado = usuarioGuardado();
+        assertThat(guardado.getRol()).isEqualTo(Rol.ANFITRION);
+        assertThat(guardado.getContrasenaHash()).isEqualTo(HASH);
+        assertThat(respuesta.rol()).isEqualTo(Rol.ANFITRION);
+        assertThat(respuesta.primerNombre()).isEqualTo("Carlos");
+        assertThat(respuesta.primerApellido()).isEqualTo("Gómez");
+    }
+
+    @Test
+    @DisplayName("HU-002 criterio 4: un registro exitoso deja el evento de trazabilidad")
+    void registrarAnfitrion_exitoso_registraEventoDeAuditoria() {
+        prepararRegistroExitoso("carlos@correo.com", 5L);
+
+        servicio.registrarAnfitrion(request("carlos@correo.com"));
+
+        Usuario guardado = usuarioGuardado();
+        verify(auditoriaService).registrarExito(guardado, AccionAuditoria.REGISTRO_USUARIO,
+                RegistroUsuarioServiceImpl.ENTIDAD_USUARIO, "5");
+    }
+
+    @Test
+    @DisplayName("Normaliza el correo y los nombres; los opcionales vacíos quedan nulos")
+    void registrar_normalizaCorreoYNombres() {
+        prepararRegistroExitoso("ana@correo.com", 2L);
+        RegistroUsuarioRequest request = new RegistroUsuarioRequest(
+                "  Ana ", "   ", " Pérez ", null, "  Ana@Correo.COM ", CONTRASENA, CONTRASENA);
+
+        UsuarioResponse respuesta = servicio.registrarHuesped(request);
 
         assertThat(respuesta.correo()).isEqualTo("ana@correo.com");
-        assertThat(respuesta.nombre()).isEqualTo("Ana Pérez");
+        assertThat(respuesta.primerNombre()).isEqualTo("Ana");
+        assertThat(respuesta.segundoNombre()).isNull();
+        assertThat(respuesta.primerApellido()).isEqualTo("Pérez");
+        assertThat(respuesta.segundoApellido()).isNull();
     }
 
     @Test
-    @DisplayName("Dado un correo ya registrado, cuando se registra, entonces se rechaza y no se guarda nada")
-    void registrarHuesped_correoDuplicado_lanzaExcepcion() {
-        when(usuarioRepository.existsByCorreoIgnoreCase("ana@correo.com")).thenReturn(true);
+    @DisplayName("Guarda los cuatro nombres cuando se envían")
+    void registrar_conSegundoNombreYApellido_losGuarda() {
+        prepararRegistroExitoso("maria@correo.com", 3L);
+        RegistroUsuarioRequest request = new RegistroUsuarioRequest(
+                "María", "José", "Rodríguez", "O'Neill", "maria@correo.com", CONTRASENA, CONTRASENA);
 
-        RegistroHuespedRequest request = new RegistroHuespedRequest("Ana", "ana@correo.com", "Segura123");
-        assertThatThrownBy(() -> servicio.registrarHuesped(request))
+        servicio.registrarAnfitrion(request);
+
+        assertThat(usuarioGuardado().getNombre())
+                .isEqualTo(new NombreCompleto("María", "José", "Rodríguez", "O'Neill"));
+    }
+
+    @Test
+    @DisplayName("HU-002 criterio 2: dado un correo ya registrado, cuando se registra, entonces se rechaza y no se crea la cuenta")
+    void registrarAnfitrion_correoDuplicado_lanzaExcepcionSinGuardar() {
+        when(usuarioRepository.existsByCorreoIgnoreCase("ana@correo.com")).thenReturn(true);
+        RegistroUsuarioRequest request = request("ana@correo.com");
+
+        assertThatThrownBy(() -> servicio.registrarAnfitrion(request))
                 .isInstanceOf(CorreoYaRegistradoException.class);
 
         verify(usuarioRepository, never()).saveAndFlush(any());
         verify(passwordEncoder, never()).encode(anyString());
         verify(auditoriaService).registrarFallo("ana@correo.com", AccionAuditoria.REGISTRO_USUARIO,
                 RegistroUsuarioServiceImpl.ENTIDAD_USUARIO, RegistroUsuarioServiceImpl.MOTIVO_CORREO_DUPLICADO);
+        verify(auditoriaService, never()).registrarExito(any(), any(), anyString(), anyString());
     }
 
     @Test
     @DisplayName("Si dos registros simultáneos usan el mismo correo, el índice único se traduce a correo duplicado")
-    void registrarHuesped_violacionIndiceUnico_lanzaCorreoYaRegistrado() {
+    void registrar_violacionIndiceUnico_lanzaCorreoYaRegistrado() {
         when(usuarioRepository.existsByCorreoIgnoreCase(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn(HASH);
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenThrow(new DataIntegrityViolationException(
                 "duplicado", new SQLException("duplicate key value violates unique constraint \"uq_usuario_correo\"")));
+        RegistroUsuarioRequest request = request("ana@correo.com");
 
-        RegistroHuespedRequest request = new RegistroHuespedRequest("Ana", "ana@correo.com", "Segura123");
         assertThatThrownBy(() -> servicio.registrarHuesped(request))
                 .isInstanceOf(CorreoYaRegistradoException.class);
 
         verify(auditoriaService).registrarFallo(eq("ana@correo.com"), eq(AccionAuditoria.REGISTRO_USUARIO),
                 anyString(), eq(RegistroUsuarioServiceImpl.MOTIVO_CORREO_DUPLICADO));
-        verify(auditoriaService, never()).registrarExito(any(), any(), anyString(), anyString());
     }
 
     @Test
     @DisplayName("Otras violaciones de integridad no se confunden con correo duplicado")
-    void registrarHuesped_otraViolacion_seRelanza() {
+    void registrar_otraViolacion_seRelanza() {
         when(usuarioRepository.existsByCorreoIgnoreCase(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn(HASH);
         DataIntegrityViolationException otra = new DataIntegrityViolationException(
                 "otra", new SQLException("violates check constraint \"ck_usuario_rol\""));
         when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenThrow(otra);
+        RegistroUsuarioRequest request = request("ana@correo.com");
 
-        RegistroHuespedRequest request = new RegistroHuespedRequest("Ana", "ana@correo.com", "Segura123");
-        assertThatThrownBy(() -> servicio.registrarHuesped(request)).isSameAs(otra);
+        assertThatThrownBy(() -> servicio.registrarAnfitrion(request)).isSameAs(otra);
     }
 
-    private static Usuario conId(Usuario usuario, Long id) {
-        ReflectionTestUtils.setField(usuario, "idUsuario", id);
-        return usuario;
+    private void prepararRegistroExitoso(String correo, Long id) {
+        when(usuarioRepository.existsByCorreoIgnoreCase(correo)).thenReturn(false);
+        when(passwordEncoder.encode(CONTRASENA)).thenReturn(HASH);
+        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario usuario = inv.getArgument(0);
+            ReflectionTestUtils.setField(usuario, "idUsuario", id);
+            return usuario;
+        });
+    }
+
+    private Usuario usuarioGuardado() {
+        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).saveAndFlush(captor.capture());
+        return captor.getValue();
+    }
+
+    private static RegistroUsuarioRequest request(String correo) {
+        return new RegistroUsuarioRequest("Carlos", null, "Gómez", null, correo, CONTRASENA, CONTRASENA);
     }
 }
