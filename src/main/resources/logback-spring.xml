@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Todos los logs salen en JSON (logstash-logback-encoder). Los eventos de negocio agregan
+         los campos usuario, accion, entidad, idEntidad y resultado; @timestamp aporta la fecha. -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timeZone>UTC</timeZone>
+            <includeMdc>true</includeMdc>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>
