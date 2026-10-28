@@ -75,6 +75,20 @@ class RegistroUsuarioRequestValidationTest {
     }
 
     @Test
+    @DisplayName("Un nombre enorme no desborda la pila: solo falla por longitud")
+    void nombreMuyLargo_noDesbordaLaPila() {
+        String enorme = "Ana-".repeat(50_000) + "Ana";
+
+        assertThat(camposConError(conPrimerNombre(enorme))).containsExactly("primerNombre");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Ana-", "Ana'", "Ana -Lucía", "Ana' María"})
+    void nombresQueTerminanEnSeparadorOConSeparadoresSeguidos_sonInvalidos(String nombre) {
+        assertThat(camposConError(conPrimerNombre(nombre))).containsExactly("primerNombre");
+    }
+
+    @Test
     void segundoApellidoConNumeros_esInvalido() {
         assertThat(camposConError(new RegistroUsuarioRequest(
                 "Ana", null, "Pérez", "Gómez3", "ana@correo.com", CONTRASENA, CONTRASENA)))
