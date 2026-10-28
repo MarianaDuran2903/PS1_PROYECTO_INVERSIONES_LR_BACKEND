@@ -28,6 +28,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                // CSRF desactivado de forma segura: la API es sin estado, no usa sesiones ni cookies, y la
+                // autenticación viaja en el encabezado Authorization (JWT), que el navegador no envía solo.
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
