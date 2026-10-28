@@ -1,6 +1,9 @@
 package com.inversioneslr.backend.exception;
 
 import com.inversioneslr.backend.dto.response.ErrorResponse;
+import com.inversioneslr.backend.model.enums.AccionAuditoria;
+import com.inversioneslr.backend.security.UsuarioAutenticado;
+import com.inversioneslr.backend.service.AuditoriaService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -24,6 +29,14 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    static final String ENTIDAD_RUTA = "Ruta";
+    static final String MOTIVO_ROL_NO_AUTORIZADO = "ROL_NO_AUTORIZADO";
+
+    private final AuditoriaService auditoriaService;
+
+    public GlobalExceptionHandler(AuditoriaService auditoriaService) {
+        this.auditoriaService = auditoriaService;
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> manejarValidacion(MethodArgumentNotValidException ex,
@@ -47,15 +60,31 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<ErrorResponse> manejarCredencialesInvalidas(CredencialesInvalidasException ex,
+                                                                      HttpServletRequest request) {
+        return construir(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> manejarNoAutenticado(AuthenticationException ex,
                                                               HttpServletRequest request) {
         return construir(HttpStatus.UNAUTHORIZED, "Debe iniciar sesión", request, null);
     }
 
+    /**
+     * Un usuario autenticado pidió una operación que su rol no permite (@PreAuthorize): se deniega y se registra
+     * el intento para trazabilidad (HU-003).
+     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> manejarAccesoDenegado(AccessDeniedException ex,
                                                                HttpServletRequest request) {
+        Authentication autenticacion = SecurityContextHolder.getContext().getAuthentication();
+        if (autenticacion != null && autenticacion.getPrincipal() instanceof UsuarioAutenticado usuario) {
+            auditoriaService.registrarIntentoFallido(usuario.idUsuario(), usuario.correo(),
+                    AccionAuditoria.ACCESO_DENEGADO, ENTIDAD_RUTA,
+                    request.getMethod() + " " + request.getRequestURI(), MOTIVO_ROL_NO_AUTORIZADO);
+        }
         return construir(HttpStatus.FORBIDDEN, "No tiene permisos para esta operación", request, null);
     }
 

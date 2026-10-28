@@ -26,6 +26,11 @@ services:
       DB_NAME: ${DB_NAME:-inversiones_lr}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET en el archivo .env}
+      JWT_EXPIRACION_MINUTOS: ${JWT_EXPIRACION_MINUTOS:-60}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
+      ADMIN_CORREO: ${ADMIN_CORREO:-}
+      ADMIN_CONTRASENA: ${ADMIN_CONTRASENA:-}
     ports:
       - "${SERVER_PORT:-8080}:8080"
 
