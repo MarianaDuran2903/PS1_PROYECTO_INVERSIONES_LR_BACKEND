@@ -20,6 +20,18 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+seguridad:
+  jwt:
+    # Obligatorio: mínimo 32 caracteres. Sin valor, la aplicación no arranca.
+    secreto: ${JWT_SECRET:}
+    expiracion-minutos: ${JWT_EXPIRACION_MINUTOS:60}
+  cors:
+    origenes-permitidos: ${FRONTEND_URL:http://localhost:4200}
+  admin-inicial:
+    # Si no existe ningún ADMINISTRADOR y ambos tienen valor, se crea al arrancar.
+    correo: ${ADMIN_CORREO:}
+    contrasena: ${ADMIN_CONTRASENA:}
+
 server:
   port: ${SERVER_PORT:8080}
   error:
