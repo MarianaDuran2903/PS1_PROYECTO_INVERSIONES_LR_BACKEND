@@ -4,7 +4,7 @@ import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
 
 /**
- * Trazabilidad de acciones relevantes (RNF-AUD-001, RF-TRZ-*).
+ * Trazabilidad de acciones relevantes.
  */
 public interface AuditoriaService {
 
