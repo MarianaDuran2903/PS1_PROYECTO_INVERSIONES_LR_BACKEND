@@ -83,10 +83,13 @@ public class Publicacion {
                        Ciudad ciudad, TipoAlojamiento tipo) {
         this.anfitrion = anfitrion;
         this.politica = politica;
-        actualizarDatos(datos, ciudad, tipo);
+        asignarDatos(datos, ciudad, tipo);
     }
 
-    public final void actualizarDatos(DatosPublicacion datos, Ciudad ciudad, TipoAlojamiento tipo) {
+    /**
+     * Privado para que el constructor no llame a un método que Hibernate pueda sobrescribir en sus proxies.
+     */
+    private void asignarDatos(DatosPublicacion datos, Ciudad ciudad, TipoAlojamiento tipo) {
         this.titulo = datos.titulo();
         this.descripcion = datos.descripcion();
         this.direccionTextual = datos.direccionTextual();
@@ -102,7 +105,7 @@ public class Publicacion {
      */
     public void editar(DatosPublicacion datos, Ciudad ciudad, TipoAlojamiento tipo, BigDecimal tarifaLimpieza,
                        String reglas) {
-        actualizarDatos(datos, ciudad, tipo);
+        asignarDatos(datos, ciudad, tipo);
         this.tarifaLimpieza = tarifaLimpieza;
         this.reglas = reglas == null || reglas.isBlank() ? null : reglas.strip();
     }
