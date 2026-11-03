@@ -45,6 +45,10 @@ public record PublicacionResponse(
         BigDecimal precioNoche,
 
         @Schema(description = "Tarifa de limpieza", example = "0.00")
-        BigDecimal tarifaLimpieza
+        BigDecimal tarifaLimpieza,
+
+        @Schema(description = "Reglas de la casa (nulo si no se registraron)", example = "No se admiten mascotas.",
+                nullable = true)
+        String reglas
 ) {
 }

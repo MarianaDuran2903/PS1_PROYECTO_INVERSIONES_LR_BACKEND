@@ -20,6 +20,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -78,6 +79,34 @@ public class GlobalExceptionHandler {
                                                                    HttpServletRequest request) {
         return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request,
                 Map.of(ex.getCampo(), ex.getMessage()));
+    }
+
+    /**
+     * Un parámetro de la ruta con un tipo incorrecto (por ejemplo, /publicaciones/abc).
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> manejarParametroInvalido(MethodArgumentTypeMismatchException ex,
+                                                                  HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request,
+                Map.of(ex.getName(), "El tipo de dato no es válido"));
+    }
+
+    @ExceptionHandler(PublicacionNoEncontradaException.class)
+    public ResponseEntity<ErrorResponse> manejarPublicacionNoEncontrada(PublicacionNoEncontradaException ex,
+                                                                        HttpServletRequest request) {
+        return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(PublicacionAjenaException.class)
+    public ResponseEntity<ErrorResponse> manejarPublicacionAjena(PublicacionAjenaException ex,
+                                                                 HttpServletRequest request) {
+        return construir(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(EstadoNoEditableException.class)
+    public ResponseEntity<ErrorResponse> manejarEstadoNoEditable(EstadoNoEditableException ex,
+                                                                 HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(CorreoYaRegistradoException.class)

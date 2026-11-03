@@ -25,7 +25,8 @@ public class PublicacionMapper {
                 toItem(publicacion.getPolitica()),
                 publicacion.getCapacidad(),
                 publicacion.getPrecioNoche(),
-                publicacion.getTarifaLimpieza());
+                publicacion.getTarifaLimpieza(),
+                publicacion.getReglas());
     }
 
     public CatalogoItemResponse toItem(Ciudad ciudad) {

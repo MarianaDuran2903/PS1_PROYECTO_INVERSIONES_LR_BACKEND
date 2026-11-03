@@ -97,6 +97,20 @@ public class Publicacion {
         this.tipo = tipo;
     }
 
+    /**
+     * Reemplaza la información editable. Las reglas en blanco quedan nulas.
+     */
+    public void editar(DatosPublicacion datos, Ciudad ciudad, TipoAlojamiento tipo, BigDecimal tarifaLimpieza,
+                       String reglas) {
+        actualizarDatos(datos, ciudad, tipo);
+        this.tarifaLimpieza = tarifaLimpieza;
+        this.reglas = reglas == null || reglas.isBlank() ? null : reglas.strip();
+    }
+
+    public boolean perteneceA(Long idUsuario) {
+        return anfitrion.getIdUsuario().equals(idUsuario);
+    }
+
     public Long getIdPublicacion() {
         return idPublicacion;
     }

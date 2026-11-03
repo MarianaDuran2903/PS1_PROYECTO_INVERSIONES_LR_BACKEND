@@ -9,5 +9,13 @@ public enum EstadoPublicacion {
     PENDIENTE_REVISION,
     ACTIVA,
     PAUSADA,
-    BLOQUEADA
+    BLOQUEADA;
+
+    /**
+     * El Anfitrión solo edita mientras la publicación no está publicada ni en manos del Administrador:
+     * una ACTIVA debe pausarse primero.
+     */
+    public boolean permiteEdicionDelAnfitrion() {
+        return this == BORRADOR || this == PAUSADA;
+    }
 }

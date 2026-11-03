@@ -1,10 +1,15 @@
 package com.inversioneslr.backend.service.impl;
 
+import com.inversioneslr.backend.dto.request.ActualizarPublicacionRequest;
 import com.inversioneslr.backend.dto.request.CrearPublicacionRequest;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
+import com.inversioneslr.backend.exception.EstadoNoEditableException;
+import com.inversioneslr.backend.exception.PublicacionAjenaException;
+import com.inversioneslr.backend.exception.PublicacionNoEncontradaException;
 import com.inversioneslr.backend.exception.ReferenciaInvalidaException;
 import com.inversioneslr.backend.mapper.PublicacionMapper;
 import com.inversioneslr.backend.model.Ciudad;
+import com.inversioneslr.backend.model.DatosPublicacion;
 import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.PoliticaCancelacion;
 import com.inversioneslr.backend.model.Publicacion;
@@ -24,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -171,6 +178,198 @@ class PublicacionServiceImplTest {
                 .isInstanceOf(IllegalStateException.class);
 
         verify(publicacionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Editar: el propietario guarda los cambios válidos y el estado no cambia")
+    void actualizar_propietario_guardaCambios() {
+        Publicacion existente = publicacionExistente(EstadoPublicacion.BORRADOR);
+        prepararEdicionExitosa(existente);
+
+        PublicacionResponse respuesta = servicio.actualizar(12L,
+                actualizacion(3L, "  Casa renovada  ", " Sin fiestas después de las 10 pm "), ANFITRION_AUTENTICADO);
+
+        assertThat(respuesta.titulo()).isEqualTo("Casa renovada");
+        assertThat(respuesta.capacidad()).isEqualTo(6);
+        assertThat(respuesta.precioNoche()).isEqualByComparingTo("320000.00");
+        assertThat(respuesta.tarifaLimpieza()).isEqualByComparingTo("40000.00");
+        assertThat(respuesta.reglas()).isEqualTo("Sin fiestas después de las 10 pm");
+        assertThat(respuesta.estado()).isEqualTo(EstadoPublicacion.BORRADOR);
+        assertThat(respuesta.idAnfitrion()).isEqualTo(5L);
+        verify(publicacionRepository).save(existente);
+    }
+
+    @Test
+    @DisplayName("Editar: el cambio queda registrado para trazabilidad")
+    void actualizar_registraEventoDeAuditoria() {
+        Publicacion existente = publicacionExistente(EstadoPublicacion.BORRADOR);
+        prepararEdicionExitosa(existente);
+
+        servicio.actualizar(12L, actualizacion(3L, "Casa renovada", null), ANFITRION_AUTENTICADO);
+
+        verify(auditoriaService).registrarExito(anfitrion, AccionAuditoria.EDITAR_PUBLICACION,
+                PublicacionServiceImpl.ENTIDAD_PUBLICACION, "12");
+    }
+
+    @Test
+    void actualizar_publicacionPausada_seEditaYSigueEnPausada() {
+        Publicacion existente = publicacionExistente(EstadoPublicacion.PAUSADA);
+        prepararEdicionExitosa(existente);
+
+        PublicacionResponse respuesta = servicio.actualizar(12L, actualizacion(3L, "Casa renovada", null),
+                ANFITRION_AUTENTICADO);
+
+        assertThat(respuesta.estado()).isEqualTo(EstadoPublicacion.PAUSADA);
+    }
+
+    @Test
+    void actualizar_reglasEnBlanco_quedanNulas() {
+        Publicacion existente = publicacionExistente(EstadoPublicacion.BORRADOR);
+        prepararEdicionExitosa(existente);
+
+        PublicacionResponse respuesta = servicio.actualizar(12L, actualizacion(3L, "Casa renovada", "   "),
+                ANFITRION_AUTENTICADO);
+
+        assertThat(respuesta.reglas()).isNull();
+    }
+
+    @Test
+    @DisplayName("Editar: una publicación de otro Anfitrión se deniega y el intento queda registrado")
+    void actualizar_publicacionAjena_seDeniegaYRegistraIntento() {
+        Publicacion ajena = publicacionDe(otroAnfitrion(), EstadoPublicacion.BORRADOR);
+        when(publicacionRepository.findById(12L)).thenReturn(Optional.of(ajena));
+        ActualizarPublicacionRequest request = actualizacion(3L, "Casa renovada", null);
+
+        assertThatThrownBy(() -> servicio.actualizar(12L, request, ANFITRION_AUTENTICADO))
+                .isInstanceOf(PublicacionAjenaException.class);
+
+        assertThat(ajena.getTitulo()).isEqualTo("Apartamento frente al mar");
+        verify(publicacionRepository, never()).save(any());
+        verify(auditoriaService).registrarIntentoFallido(5L, "carlos@correo.com", AccionAuditoria.ACCESO_DENEGADO,
+                PublicacionServiceImpl.ENTIDAD_PUBLICACION, "12", PublicacionServiceImpl.MOTIVO_NO_ES_PROPIETARIO);
+    }
+
+    @Test
+    void actualizar_publicacionInexistente_lanzaNoEncontrada() {
+        when(publicacionRepository.findById(99L)).thenReturn(Optional.empty());
+        ActualizarPublicacionRequest request = actualizacion(3L, "Casa renovada", null);
+
+        assertThatThrownBy(() -> servicio.actualizar(99L, request, ANFITRION_AUTENTICADO))
+                .isInstanceOf(PublicacionNoEncontradaException.class)
+                .hasMessage("La publicación no existe");
+
+        verify(publicacionRepository, never()).save(any());
+    }
+
+    @ParameterizedTest(name = "estado {0}")
+    @EnumSource(value = EstadoPublicacion.class, names = {"ACTIVA", "PENDIENTE_REVISION", "BLOQUEADA"})
+    @DisplayName("Editar: fuera de BORRADOR o PAUSADA se rechaza sin cambiar nada")
+    void actualizar_estadoNoEditable_seRechazaSinCambios(EstadoPublicacion estado) {
+        Publicacion existente = publicacionExistente(estado);
+        when(publicacionRepository.findById(12L)).thenReturn(Optional.of(existente));
+        ActualizarPublicacionRequest request = actualizacion(3L, "Casa renovada", null);
+
+        assertThatThrownBy(() -> servicio.actualizar(12L, request, ANFITRION_AUTENTICADO))
+                .isInstanceOf(EstadoNoEditableException.class);
+
+        assertThat(existente.getTitulo()).isEqualTo("Apartamento frente al mar");
+        assertThat(existente.getEstado()).isEqualTo(estado);
+        verify(publicacionRepository, never()).save(any());
+        verifyNoInteractions(ciudadRepository);
+        verify(auditoriaService).registrarFallo("carlos@correo.com", AccionAuditoria.EDITAR_PUBLICACION,
+                PublicacionServiceImpl.ENTIDAD_PUBLICACION, PublicacionServiceImpl.MOTIVO_ESTADO_NO_EDITABLE);
+    }
+
+    @Test
+    void actualizar_publicacionActiva_pideQueSePause() {
+        when(publicacionRepository.findById(12L))
+                .thenReturn(Optional.of(publicacionExistente(EstadoPublicacion.ACTIVA)));
+        ActualizarPublicacionRequest request = actualizacion(3L, "Casa renovada", null);
+
+        assertThatThrownBy(() -> servicio.actualizar(12L, request, ANFITRION_AUTENTICADO))
+                .hasMessage("La publicación está activa: solicite pausarla para editarla");
+    }
+
+    @Test
+    @DisplayName("Editar: con una ciudad inexistente la publicación conserva lo que tenía")
+    void actualizar_ciudadInexistente_conservaLaInformacionPrevia() {
+        Publicacion existente = publicacionExistente(EstadoPublicacion.BORRADOR);
+        when(publicacionRepository.findById(12L)).thenReturn(Optional.of(existente));
+        when(ciudadRepository.findById(77L)).thenReturn(Optional.empty());
+        ActualizarPublicacionRequest request = actualizacion(77L, "Casa renovada", null);
+
+        assertThatThrownBy(() -> servicio.actualizar(12L, request, ANFITRION_AUTENTICADO))
+                .isInstanceOf(ReferenciaInvalidaException.class)
+                .extracting("campo").isEqualTo("idCiudad");
+
+        assertThat(existente.getTitulo()).isEqualTo("Apartamento frente al mar");
+        assertThat(existente.getCiudad()).isSameAs(cartagena);
+        verify(publicacionRepository, never()).save(any());
+        verify(auditoriaService, never()).registrarExito(any(), any(), any(), any());
+    }
+
+    @Test
+    void obtenerPropia_propietario_devuelveLaPublicacion() {
+        when(publicacionRepository.findById(12L))
+                .thenReturn(Optional.of(publicacionExistente(EstadoPublicacion.ACTIVA)));
+
+        PublicacionResponse respuesta = servicio.obtenerPropia(12L, ANFITRION_AUTENTICADO);
+
+        assertThat(respuesta.idPublicacion()).isEqualTo(12L);
+        assertThat(respuesta.estado()).isEqualTo(EstadoPublicacion.ACTIVA);
+        verifyNoInteractions(auditoriaService);
+    }
+
+    @Test
+    void obtenerPropia_publicacionAjena_seDeniegaYRegistraIntento() {
+        when(publicacionRepository.findById(12L))
+                .thenReturn(Optional.of(publicacionDe(otroAnfitrion(), EstadoPublicacion.BORRADOR)));
+
+        assertThatThrownBy(() -> servicio.obtenerPropia(12L, ANFITRION_AUTENTICADO))
+                .isInstanceOf(PublicacionAjenaException.class);
+
+        verify(auditoriaService).registrarIntentoFallido(5L, "carlos@correo.com", AccionAuditoria.ACCESO_DENEGADO,
+                PublicacionServiceImpl.ENTIDAD_PUBLICACION, "12", PublicacionServiceImpl.MOTIVO_NO_ES_PROPIETARIO);
+    }
+
+    @Test
+    void obtenerPropia_publicacionInexistente_lanzaNoEncontrada() {
+        when(publicacionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.obtenerPropia(99L, ANFITRION_AUTENTICADO))
+                .isInstanceOf(PublicacionNoEncontradaException.class);
+    }
+
+    private void prepararEdicionExitosa(Publicacion existente) {
+        when(publicacionRepository.findById(12L)).thenReturn(Optional.of(existente));
+        when(ciudadRepository.findById(3L)).thenReturn(Optional.of(cartagena));
+        when(tipoAlojamientoRepository.findById(1L)).thenReturn(Optional.of(apartamento));
+        when(publicacionRepository.save(existente)).thenReturn(existente);
+    }
+
+    private Publicacion publicacionExistente(EstadoPublicacion estado) {
+        return publicacionDe(anfitrion, estado);
+    }
+
+    private Publicacion publicacionDe(Usuario propietario, EstadoPublicacion estado) {
+        DatosPublicacion datos = DatosPublicacion.normalizados("Apartamento frente al mar", "Dos habitaciones",
+                "Calle 5 # 3-20", null, 4, new BigDecimal("250000.00"));
+        Publicacion publicacion = new Publicacion(propietario, flexible, datos, cartagena, apartamento);
+        ReflectionTestUtils.setField(publicacion, "idPublicacion", 12L);
+        ReflectionTestUtils.setField(publicacion, "estado", estado);
+        return publicacion;
+    }
+
+    private static Usuario otroAnfitrion() {
+        Usuario otro = new Usuario(new NombreCompleto("Ana", null, "Ruiz", null),
+                "ana@correo.com", "hash", Rol.ANFITRION);
+        ReflectionTestUtils.setField(otro, "idUsuario", 8L);
+        return otro;
+    }
+
+    private static ActualizarPublicacionRequest actualizacion(Long idCiudad, String titulo, String reglas) {
+        return new ActualizarPublicacionRequest(titulo, "Tres habitaciones y patio", "Carrera 7 # 10-15", idCiudad,
+                "Manga", 1L, 6, new BigDecimal("320000.00"), new BigDecimal("40000.00"), reglas);
     }
 
     private void prepararCreacionExitosa() {

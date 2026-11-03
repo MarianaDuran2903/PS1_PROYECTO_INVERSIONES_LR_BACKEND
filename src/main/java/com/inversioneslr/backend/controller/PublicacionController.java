@@ -1,6 +1,7 @@
 package com.inversioneslr.backend.controller;
 
 import com.inversioneslr.backend.config.OpenApiConfig;
+import com.inversioneslr.backend.dto.request.ActualizarPublicacionRequest;
 import com.inversioneslr.backend.dto.request.CrearPublicacionRequest;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
@@ -17,7 +18,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,5 +55,53 @@ public class PublicacionController {
     public ResponseEntity<PublicacionResponse> crear(@Valid @RequestBody CrearPublicacionRequest request,
                                                      @AuthenticationPrincipal UsuarioAutenticado anfitrion) {
         return ResponseEntity.status(HttpStatus.CREATED).body(publicacionService.crear(request, anfitrion));
+    }
+
+    @GetMapping("/{idPublicacion}")
+    @PreAuthorize("hasRole('ANFITRION')")
+    @Operation(summary = "Consultar una publicación propia",
+            description = "Devuelve una publicación del Anfitrión autenticado, por ejemplo para precargar el "
+                    + "formulario de edición. Solo rol ANFITRION y solo el propietario.")
+    @ApiResponse(responseCode = "200", description = "Publicación encontrada",
+            content = @Content(schema = @Schema(implementation = PublicacionResponse.class)))
+    @ApiResponse(responseCode = "400", description = "El identificador no es un número",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin token o token inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403",
+            description = "El usuario no tiene rol Anfitrión o la publicación pertenece a otro Anfitrión",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "La publicación no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<PublicacionResponse> obtener(@PathVariable Long idPublicacion,
+                                                       @AuthenticationPrincipal UsuarioAutenticado anfitrion) {
+        return ResponseEntity.ok(publicacionService.obtenerPropia(idPublicacion, anfitrion));
+    }
+
+    @PutMapping("/{idPublicacion}")
+    @PreAuthorize("hasRole('ANFITRION')")
+    @Operation(summary = "Editar una publicación propia",
+            description = "Reemplaza la información editable de una publicación del Anfitrión autenticado. "
+                    + "Solo se permite en BORRADOR o PAUSADA y no cambia el estado; una publicación ACTIVA debe "
+                    + "pausarse primero. Solo rol ANFITRION y solo el propietario.")
+    @ApiResponse(responseCode = "200", description = "Cambios guardados",
+            content = @Content(schema = @Schema(implementation = PublicacionResponse.class)))
+    @ApiResponse(responseCode = "400",
+            description = "Datos inválidos, ciudad o tipo inexistente; la publicación conserva lo que tenía",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin token o token inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403",
+            description = "El usuario no tiene rol Anfitrión o la publicación pertenece a otro Anfitrión",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "La publicación no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409",
+            description = "El estado no permite editar (ACTIVA, PENDIENTE_REVISION o BLOQUEADA)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<PublicacionResponse> actualizar(@PathVariable Long idPublicacion,
+                                                          @Valid @RequestBody ActualizarPublicacionRequest request,
+                                                          @AuthenticationPrincipal UsuarioAutenticado anfitrion) {
+        return ResponseEntity.ok(publicacionService.actualizar(idPublicacion, request, anfitrion));
     }
 }
