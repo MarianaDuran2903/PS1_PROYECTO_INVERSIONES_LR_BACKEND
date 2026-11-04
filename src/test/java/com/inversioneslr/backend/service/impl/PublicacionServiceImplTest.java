@@ -2,7 +2,9 @@ package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.dto.request.ActualizarPublicacionRequest;
 import com.inversioneslr.backend.dto.request.CrearPublicacionRequest;
+import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
+import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 import com.inversioneslr.backend.exception.EstadoNoEditableException;
 import com.inversioneslr.backend.exception.PublicacionAjenaException;
 import com.inversioneslr.backend.exception.PublicacionNoEncontradaException;
@@ -35,15 +37,21 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -338,6 +346,57 @@ class PublicacionServiceImplTest {
 
         assertThatThrownBy(() -> servicio.obtenerPropia(99L, ANFITRION_AUTENTICADO))
                 .isInstanceOf(PublicacionNoEncontradaException.class);
+    }
+
+    @Test
+    @DisplayName("Listar: se consultan solo las publicaciones del Anfitrión del token, las más recientes primero")
+    void listarPropias_filtraPorElAnfitrionDelToken() {
+        when(publicacionRepository.findByAnfitrionIdUsuario(eq(5L), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(List.of(publicacionExistente(EstadoPublicacion.PAUSADA)),
+                        inv.getArgument(1), 1));
+
+        PaginaResponse<PublicacionResumenResponse> respuesta = servicio.listarPropias(ANFITRION_AUTENTICADO, 2, 10);
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(publicacionRepository).findByAnfitrionIdUsuario(eq(5L), captor.capture());
+        Pageable pedido = captor.getValue();
+        assertThat(pedido.getPageNumber()).isEqualTo(2);
+        assertThat(pedido.getPageSize()).isEqualTo(10);
+        assertThat(pedido.getSort().getOrderFor("idPublicacion")).isNotNull()
+                .extracting(Sort.Order::getDirection).isEqualTo(Sort.Direction.DESC);
+        assertThat(respuesta.contenido()).singleElement().satisfies(resumen -> {
+            assertThat(resumen.idPublicacion()).isEqualTo(12L);
+            assertThat(resumen.estado()).isEqualTo(EstadoPublicacion.PAUSADA);
+            assertThat(resumen.ciudad().nombre()).isEqualTo("Cartagena");
+            assertThat(resumen.tipo().nombre()).isEqualTo("Apartamento");
+        });
+        assertThat(respuesta.mensaje()).isNull();
+        verifyNoInteractions(auditoriaService);
+    }
+
+    @Test
+    @DisplayName("Listar: sin publicaciones la página viene vacía e informa que no hay ninguna")
+    void listarPropias_sinPublicaciones_informaQueNoHay() {
+        when(publicacionRepository.findByAnfitrionIdUsuario(eq(5L), any(Pageable.class)))
+                .thenAnswer(inv -> Page.empty(inv.getArgument(1)));
+
+        PaginaResponse<PublicacionResumenResponse> respuesta = servicio.listarPropias(ANFITRION_AUTENTICADO, 0, 20);
+
+        assertThat(respuesta.contenido()).isEmpty();
+        assertThat(respuesta.totalElementos()).isZero();
+        assertThat(respuesta.mensaje()).isEqualTo("No tiene publicaciones registradas");
+    }
+
+    @Test
+    void listarPropias_paginaPosteriorALaUltima_noMuestraElMensaje() {
+        when(publicacionRepository.findByAnfitrionIdUsuario(eq(5L), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(List.of(), inv.getArgument(1), 3));
+
+        PaginaResponse<PublicacionResumenResponse> respuesta = servicio.listarPropias(ANFITRION_AUTENTICADO, 5, 20);
+
+        assertThat(respuesta.contenido()).isEmpty();
+        assertThat(respuesta.totalElementos()).isEqualTo(3);
+        assertThat(respuesta.mensaje()).isNull();
     }
 
     private void prepararEdicionExitosa(Publicacion existente) {

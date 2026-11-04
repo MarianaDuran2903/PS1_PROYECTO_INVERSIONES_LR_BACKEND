@@ -2,7 +2,9 @@ package com.inversioneslr.backend.service;
 
 import com.inversioneslr.backend.dto.request.ActualizarPublicacionRequest;
 import com.inversioneslr.backend.dto.request.CrearPublicacionRequest;
+import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
+import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 
 /**
@@ -16,6 +18,15 @@ public interface PublicacionService {
      * @throws com.inversioneslr.backend.exception.ReferenciaInvalidaException si la ciudad o el tipo no existen
      */
     PublicacionResponse crear(CrearPublicacionRequest request, UsuarioAutenticado anfitrion);
+
+    /**
+     * Lista las publicaciones del Anfitrión autenticado, de la más reciente a la más antigua. Si no tiene
+     * ninguna, la página viene vacía y con un mensaje que lo informa.
+     *
+     * @param pagina número de página, empezando en 0
+     * @param tamano cantidad de elementos por página
+     */
+    PaginaResponse<PublicacionResumenResponse> listarPropias(UsuarioAutenticado anfitrion, int pagina, int tamano);
 
     /**
      * Devuelve una publicación del Anfitrión autenticado.

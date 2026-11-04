@@ -9,6 +9,7 @@ import com.inversioneslr.backend.service.AuditoriaService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -19,8 +20,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.validation.method.ParameterValidationResult;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -91,6 +95,21 @@ public class GlobalExceptionHandler {
                 Map.of(ex.getName(), "El tipo de dato no es válido"));
     }
 
+    /**
+     * Un parámetro de la consulta no cumple sus restricciones (por ejemplo, tamano=0 en un listado paginado).
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> manejarParametrosInvalidos(HandlerMethodValidationException ex,
+                                                                    HttpServletRequest request) {
+        Map<String, String> errores = new LinkedHashMap<>();
+        for (ParameterValidationResult resultado : ex.getAllValidationResults()) {
+            String parametro = nombreDelParametro(resultado.getMethodParameter());
+            resultado.getResolvableErrors().stream().findFirst()
+                    .ifPresent(error -> errores.putIfAbsent(parametro, error.getDefaultMessage()));
+        }
+        return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request, errores);
+    }
+
     @ExceptionHandler(PublicacionNoEncontradaException.class)
     public ResponseEntity<ErrorResponse> manejarPublicacionNoEncontrada(PublicacionNoEncontradaException ex,
                                                                         HttpServletRequest request) {
@@ -152,6 +171,14 @@ public class GlobalExceptionHandler {
                 kv("ruta", request.getRequestURI()),
                 ex);
         return construir(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado", request, null);
+    }
+
+    private static String nombreDelParametro(MethodParameter parametro) {
+        RequestParam requestParam = parametro.getParameterAnnotation(RequestParam.class);
+        if (requestParam != null && !requestParam.name().isEmpty()) {
+            return requestParam.name();
+        }
+        return parametro.getParameterName();
     }
 
     private static ResponseEntity<ErrorResponse> construir(HttpStatus estado, String mensaje,

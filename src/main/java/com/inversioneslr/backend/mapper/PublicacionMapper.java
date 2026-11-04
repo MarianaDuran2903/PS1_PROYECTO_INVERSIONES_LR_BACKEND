@@ -2,6 +2,7 @@ package com.inversioneslr.backend.mapper;
 
 import com.inversioneslr.backend.dto.response.CatalogoItemResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
+import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 import com.inversioneslr.backend.model.Ciudad;
 import com.inversioneslr.backend.model.PoliticaCancelacion;
 import com.inversioneslr.backend.model.Publicacion;
@@ -27,6 +28,17 @@ public class PublicacionMapper {
                 publicacion.getPrecioNoche(),
                 publicacion.getTarifaLimpieza(),
                 publicacion.getReglas());
+    }
+
+    public PublicacionResumenResponse toResumen(Publicacion publicacion) {
+        return new PublicacionResumenResponse(
+                publicacion.getIdPublicacion(),
+                publicacion.getTitulo(),
+                publicacion.getEstado(),
+                toItem(publicacion.getCiudad()),
+                toItem(publicacion.getTipo()),
+                publicacion.getCapacidad(),
+                publicacion.getPrecioNoche());
     }
 
     public CatalogoItemResponse toItem(Ciudad ciudad) {
