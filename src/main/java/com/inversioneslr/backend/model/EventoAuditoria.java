@@ -51,17 +51,27 @@ public class EventoAuditoria {
     @Column(name = "resultado", nullable = false, length = 30)
     private ResultadoAuditoria resultado;
 
+    // Nulo cuando el evento no necesita información adicional.
+    @Column(name = "detalle", columnDefinition = "text")
+    private String detalle;
+
     protected EventoAuditoria() {
         // Requerido por JPA
     }
 
     public EventoAuditoria(Usuario usuario, AccionAuditoria accion, String tipoEntidad,
                            String idEntidad, ResultadoAuditoria resultado) {
+        this(usuario, accion, tipoEntidad, idEntidad, resultado, null);
+    }
+
+    public EventoAuditoria(Usuario usuario, AccionAuditoria accion, String tipoEntidad,
+                           String idEntidad, ResultadoAuditoria resultado, String detalle) {
         this.usuario = usuario;
         this.accion = accion;
         this.tipoEntidad = tipoEntidad;
         this.idEntidad = idEntidad;
         this.resultado = resultado;
+        this.detalle = detalle;
     }
 
     @PrePersist
@@ -97,5 +107,9 @@ public class EventoAuditoria {
 
     public ResultadoAuditoria getResultado() {
         return resultado;
+    }
+
+    public String getDetalle() {
+        return detalle;
     }
 }

@@ -14,6 +14,13 @@ public interface AuditoriaService {
     void registrarExito(Usuario usuario, AccionAuditoria accion, String tipoEntidad, String idEntidad);
 
     /**
+     * Igual que {@link #registrarExito(Usuario, AccionAuditoria, String, String)}, guardando además un detalle
+     * del evento (por ejemplo, el motivo de una intervención administrativa).
+     */
+    void registrarExito(Usuario usuario, AccionAuditoria accion, String tipoEntidad, String idEntidad,
+                        String detalle);
+
+    /**
      * Escribe en el log JSON un intento fallido. No se persiste porque la operación se revierte.
      */
     void registrarFallo(String usuario, AccionAuditoria accion, String tipoEntidad, String motivo);
