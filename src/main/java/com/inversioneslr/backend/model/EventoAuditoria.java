@@ -18,7 +18,7 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 
 /**
- * Trazabilidad de acciones relevantes (tabla evento_auditoria, RNF-AUD-001).
+ * Trazabilidad de acciones relevantes (tabla evento_auditoria).
  */
 @Entity
 @Table(name = "evento_auditoria")

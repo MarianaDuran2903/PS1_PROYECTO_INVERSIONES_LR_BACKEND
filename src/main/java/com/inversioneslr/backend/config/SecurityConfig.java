@@ -23,8 +23,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Seguridad (RNF-SEG-001, RNF-SEG-002): API sin estado con JWT, rutas públicas explícitas y todo lo demás
- * autenticado. Cada endpoint exige su rol con @PreAuthorize (RF-USR-003).
+ * Seguridad: API sin estado con JWT, rutas públicas explícitas y todo lo demás
+ * autenticado. Cada endpoint exige su rol con @PreAuthorize.
  */
 @Configuration
 @EnableMethodSecurity
