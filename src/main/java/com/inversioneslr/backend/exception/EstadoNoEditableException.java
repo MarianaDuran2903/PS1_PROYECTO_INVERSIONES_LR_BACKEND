@@ -3,12 +3,16 @@ package com.inversioneslr.backend.exception;
 import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 
 /**
- * El estado de la publicación no permite que el Anfitrión la edite. Se responde 409.
+ * El estado de la publicación no permite editarla (al Anfitrión o al Administrador). Se responde 409.
  */
 public class EstadoNoEditableException extends RuntimeException {
 
     public EstadoNoEditableException(EstadoPublicacion estado) {
         super(mensaje(estado));
+    }
+
+    public EstadoNoEditableException(String mensaje) {
+        super(mensaje);
     }
 
     private static String mensaje(EstadoPublicacion estado) {

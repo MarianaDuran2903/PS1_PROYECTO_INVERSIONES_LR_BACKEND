@@ -110,6 +110,13 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request, errores);
     }
 
+    @ExceptionHandler(InformacionIncompletaException.class)
+    public ResponseEntity<ErrorResponse> manejarInformacionIncompleta(InformacionIncompletaException ex,
+                                                                      HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request,
+                Map.of(ex.getCampo(), ex.getMessage()));
+    }
+
     @ExceptionHandler(PublicacionNoEncontradaException.class)
     public ResponseEntity<ErrorResponse> manejarPublicacionNoEncontrada(PublicacionNoEncontradaException ex,
                                                                         HttpServletRequest request) {

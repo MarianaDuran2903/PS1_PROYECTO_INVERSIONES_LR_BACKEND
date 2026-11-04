@@ -18,4 +18,19 @@ public enum EstadoPublicacion {
     public boolean permiteEdicionDelAnfitrion() {
         return this == BORRADOR || this == PAUSADA;
     }
+
+    /**
+     * El Administrador interviene en cualquier estado salvo ACTIVA: lo que se ve en las búsquedas se pausa
+     * antes de modificarse.
+     */
+    public boolean permiteIntervencionAdministrativa() {
+        return this != ACTIVA;
+    }
+
+    /**
+     * En revisión o activa, la base exige descripción, dirección y reglas.
+     */
+    public boolean exigeInformacionCompleta() {
+        return this == PENDIENTE_REVISION || this == ACTIVA;
+    }
 }
