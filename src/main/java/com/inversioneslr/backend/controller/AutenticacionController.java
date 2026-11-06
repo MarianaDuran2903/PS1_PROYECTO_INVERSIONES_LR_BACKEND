@@ -43,7 +43,7 @@ public class AutenticacionController {
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión",
-            description = "Valida las credenciales y devuelve un JWT con el rol del usuario (RF-USR-002, HU-003). "
+            description = "Valida las credenciales y devuelve un JWT con el rol del usuario. "
                     + "Ruta pública.")
     @ApiResponse(responseCode = "200", description = "Sesión creada",
             content = @Content(schema = @Schema(implementation = LoginResponse.class)))
@@ -71,7 +71,7 @@ public class AutenticacionController {
 
     @PostMapping("/registro/huesped")
     @Operation(summary = "Registrar Huésped",
-            description = "Crea una cuenta con rol HUESPED. Ruta pública (RF-USR-001, HU-001).")
+            description = "Crea una cuenta con rol HUESPED. Ruta pública.")
     @ApiResponse(responseCode = "201", description = "Cuenta creada con rol Huésped",
             content = @Content(schema = @Schema(implementation = UsuarioResponse.class)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos, incompletos o JSON mal formado",
@@ -85,7 +85,7 @@ public class AutenticacionController {
 
     @PostMapping("/registro/anfitrion")
     @Operation(summary = "Registrar Anfitrión",
-            description = "Crea una cuenta con rol ANFITRION. Ruta pública (RF-USR-001, HU-002).")
+            description = "Crea una cuenta con rol ANFITRION. Ruta pública.")
     @ApiResponse(responseCode = "201", description = "Cuenta creada con rol Anfitrión",
             content = @Content(schema = @Schema(implementation = UsuarioResponse.class)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos, incompletos o JSON mal formado",

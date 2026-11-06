@@ -4,7 +4,7 @@ import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
 
 /**
- * Trazabilidad de acciones relevantes (RNF-AUD-001, RF-TRZ-*).
+ * Trazabilidad de acciones relevantes.
  */
 public interface AuditoriaService {
 
@@ -12,6 +12,13 @@ public interface AuditoriaService {
      * Guarda el evento en evento_auditoria y lo escribe en el log JSON con resultado EXITOSO.
      */
     void registrarExito(Usuario usuario, AccionAuditoria accion, String tipoEntidad, String idEntidad);
+
+    /**
+     * Igual que {@link #registrarExito(Usuario, AccionAuditoria, String, String)}, guardando además un detalle
+     * del evento (por ejemplo, el motivo de una intervención administrativa).
+     */
+    void registrarExito(Usuario usuario, AccionAuditoria accion, String tipoEntidad, String idEntidad,
+                        String detalle);
 
     /**
      * Escribe en el log JSON un intento fallido. No se persiste porque la operación se revierte.

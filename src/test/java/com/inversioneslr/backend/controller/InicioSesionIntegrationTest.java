@@ -2,11 +2,11 @@ package com.inversioneslr.backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.inversioneslr.backend.BaseDeDatosDePrueba;
 import com.inversioneslr.backend.TestcontainersConfiguration;
 import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.Rol;
-import com.inversioneslr.backend.repository.EventoAuditoriaRepository;
 import com.inversioneslr.backend.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * HU-003: iniciar sesión según rol. Usa PostgreSQL real (Testcontainers) y los endpoints de prueba por rol.
+ * Inicio de sesión según rol. Usa PostgreSQL real (Testcontainers) y los endpoints de prueba por rol.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -54,24 +54,20 @@ class InicioSesionIntegrationTest {
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioRepository usuarioRepository;
-    private final EventoAuditoriaRepository eventoAuditoriaRepository;
 
     @Autowired
     InicioSesionIntegrationTest(MockMvc mockMvc, ObjectMapper objectMapper, JdbcTemplate jdbcTemplate,
-                                PasswordEncoder passwordEncoder, UsuarioRepository usuarioRepository,
-                                EventoAuditoriaRepository eventoAuditoriaRepository) {
+                                PasswordEncoder passwordEncoder, UsuarioRepository usuarioRepository) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.usuarioRepository = usuarioRepository;
-        this.eventoAuditoriaRepository = eventoAuditoriaRepository;
     }
 
     @BeforeEach
     void prepararUsuarios() {
-        eventoAuditoriaRepository.deleteAllInBatch();
-        usuarioRepository.deleteAllInBatch();
+        BaseDeDatosDePrueba.limpiar(jdbcTemplate);
         crearUsuario("huesped@correo.com", Rol.HUESPED);
         crearUsuario("anfitrion@correo.com", Rol.ANFITRION);
         crearUsuario("admin@correo.com", Rol.ADMINISTRADOR);

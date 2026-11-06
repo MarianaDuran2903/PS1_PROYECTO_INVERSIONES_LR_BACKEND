@@ -1,7 +1,7 @@
 package com.inversioneslr.backend.controller;
 
+import com.inversioneslr.backend.BaseDeDatosDePrueba;
 import com.inversioneslr.backend.TestcontainersConfiguration;
-import com.inversioneslr.backend.repository.EventoAuditoriaRepository;
 import com.inversioneslr.backend.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,28 +43,24 @@ class AutenticacionControllerIntegrationTest {
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioRepository usuarioRepository;
-    private final EventoAuditoriaRepository eventoAuditoriaRepository;
 
     @Autowired
     AutenticacionControllerIntegrationTest(MockMvc mockMvc, JdbcTemplate jdbcTemplate,
                                            PasswordEncoder passwordEncoder,
-                                           UsuarioRepository usuarioRepository,
-                                           EventoAuditoriaRepository eventoAuditoriaRepository) {
+                                           UsuarioRepository usuarioRepository) {
         this.mockMvc = mockMvc;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.usuarioRepository = usuarioRepository;
-        this.eventoAuditoriaRepository = eventoAuditoriaRepository;
     }
 
     @BeforeEach
     void limpiarDatos() {
-        eventoAuditoriaRepository.deleteAllInBatch();
-        usuarioRepository.deleteAllInBatch();
+        BaseDeDatosDePrueba.limpiar(jdbcTemplate);
     }
 
     @Test
-    @DisplayName("HU-001: dado un visitante con datos válidos, cuando se registra como Huésped, entonces se crea la cuenta con rol Huésped")
+    @DisplayName("Dado un visitante con datos válidos, cuando se registra como Huésped, entonces se crea la cuenta con rol Huésped")
     void registrarHuesped_datosValidos_creaCuentaHuesped() throws Exception {
         registrar(URL_HUESPED, json("Ana", "", "Pérez", "", "Ana.Perez@Correo.com"))
                 .andExpect(status().isCreated())
@@ -80,7 +76,7 @@ class AutenticacionControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("HU-002 criterio 1: dado un visitante con datos válidos, cuando se registra como Anfitrión, entonces se crea la cuenta con rol Anfitrión")
+    @DisplayName("Criterio 1: dado un visitante con datos válidos, cuando se registra como Anfitrión, entonces se crea la cuenta con rol Anfitrión")
     void registrarAnfitrion_datosValidos_creaCuentaAnfitrion() throws Exception {
         registrar(URL_ANFITRION, json("Carlos", "Andrés", "Gómez", "O'Neill", "carlos@correo.com"))
                 .andExpect(status().isCreated())
@@ -98,7 +94,7 @@ class AutenticacionControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("HU-002 criterio 4: dado un registro exitoso, entonces queda el evento de registro para trazabilidad")
+    @DisplayName("Criterio 4: dado un registro exitoso, entonces queda el evento de registro para trazabilidad")
     void registrarAnfitrion_exitoso_registraEventoDeAuditoria() throws Exception {
         registrar(URL_ANFITRION, json("Carlos", "", "Gómez", "", "carlos@correo.com"))
                 .andExpect(status().isCreated());
@@ -129,7 +125,7 @@ class AutenticacionControllerIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {URL_HUESPED, URL_ANFITRION})
-    @DisplayName("HU-002 criterio 2: dado un correo ya existente, entonces informa que está registrado y no crea una cuenta duplicada")
+    @DisplayName("Criterio 2: dado un correo ya existente, entonces informa que está registrado y no crea una cuenta duplicada")
     void registrar_correoDuplicado_responde409(String url) throws Exception {
         registrar(URL_HUESPED, json("Ana", "", "Pérez", "", "ana@correo.com"))
                 .andExpect(status().isCreated());
@@ -152,7 +148,7 @@ class AutenticacionControllerIntegrationTest {
             "contraseña sin especial        | Ana  | Pérez  | ana@correo.com | Segura1234    | Segura1234 | contrasena",
             "confirmación distinta          | Ana  | Pérez  | ana@correo.com | Segura#123    | Otra#12345 | confirmarContrasena"
     })
-    @DisplayName("HU-002 criterio 3: datos inválidos muestran el error específico y no crean la cuenta")
+    @DisplayName("Criterio 3: datos inválidos muestran el error específico y no crean la cuenta")
     void registrarAnfitrion_datosInvalidos_responde400(String caso, String primerNombre, String primerApellido,
                                                        String correo, String contrasena, String confirmacion,
                                                        String campo) throws Exception {
@@ -170,7 +166,7 @@ class AutenticacionControllerIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {URL_HUESPED, URL_ANFITRION})
-    @DisplayName("HU-002 criterio 3: datos incompletos muestran un error por cada campo obligatorio")
+    @DisplayName("Criterio 3: datos incompletos muestran un error por cada campo obligatorio")
     void registrar_camposAusentes_responde400(String url) throws Exception {
         registrar(url, "{}")
                 .andExpect(status().isBadRequest())
