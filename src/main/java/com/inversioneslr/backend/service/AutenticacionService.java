@@ -8,7 +8,7 @@ import com.inversioneslr.backend.security.UsuarioAutenticado;
 import java.util.Optional;
 
 /**
- * Inicio de sesión y sesiones activas (RF-USR-002, RF-USR-003).
+ * Inicio de sesión y sesiones activas.
  */
 public interface AutenticacionService {
 

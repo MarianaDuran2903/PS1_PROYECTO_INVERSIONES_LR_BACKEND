@@ -54,7 +54,7 @@ class RegistroUsuarioServiceImplTest {
     }
 
     @Test
-    @DisplayName("HU-001: dado un visitante con datos válidos, cuando se registra como Huésped, entonces la cuenta queda con rol Huésped")
+    @DisplayName("Dado un visitante con datos válidos, cuando se registra como Huésped, entonces la cuenta queda con rol Huésped")
     void registrarHuesped_datosValidos_creaCuentaConRolHuesped() {
         prepararRegistroExitoso("ana@correo.com", 1L);
 
@@ -70,7 +70,7 @@ class RegistroUsuarioServiceImplTest {
     }
 
     @Test
-    @DisplayName("HU-002 criterio 1: dado un visitante con datos válidos, cuando se registra como Anfitrión, entonces la cuenta queda con rol Anfitrión")
+    @DisplayName("Criterio 1: dado un visitante con datos válidos, cuando se registra como Anfitrión, entonces la cuenta queda con rol Anfitrión")
     void registrarAnfitrion_datosValidos_creaCuentaConRolAnfitrion() {
         prepararRegistroExitoso("carlos@correo.com", 5L);
 
@@ -85,7 +85,7 @@ class RegistroUsuarioServiceImplTest {
     }
 
     @Test
-    @DisplayName("HU-002 criterio 4: un registro exitoso deja el evento de trazabilidad")
+    @DisplayName("Criterio 4: un registro exitoso deja el evento de trazabilidad")
     void registrarAnfitrion_exitoso_registraEventoDeAuditoria() {
         prepararRegistroExitoso("carlos@correo.com", 5L);
 
@@ -126,7 +126,7 @@ class RegistroUsuarioServiceImplTest {
     }
 
     @Test
-    @DisplayName("HU-002 criterio 2: dado un correo ya registrado, cuando se registra, entonces se rechaza y no se crea la cuenta")
+    @DisplayName("Criterio 2: dado un correo ya registrado, cuando se registra, entonces se rechaza y no se crea la cuenta")
     void registrarAnfitrion_correoDuplicado_lanzaExcepcionSinGuardar() {
         when(usuarioRepository.existsByCorreoIgnoreCase("ana@correo.com")).thenReturn(true);
         RegistroUsuarioRequest request = request("ana@correo.com");
