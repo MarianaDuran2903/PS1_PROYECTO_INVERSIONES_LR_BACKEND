@@ -3,12 +3,16 @@ package com.inversioneslr.backend.controller;
 import com.inversioneslr.backend.config.OpenApiConfig;
 import com.inversioneslr.backend.dto.request.LoginRequest;
 import com.inversioneslr.backend.dto.request.RegistroUsuarioRequest;
+import com.inversioneslr.backend.dto.request.RestablecerContrasenaRequest;
+import com.inversioneslr.backend.dto.request.SolicitudRecuperacionRequest;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.dto.response.LoginResponse;
+import com.inversioneslr.backend.dto.response.MensajeResponse;
 import com.inversioneslr.backend.dto.response.SesionResponse;
 import com.inversioneslr.backend.dto.response.UsuarioResponse;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 import com.inversioneslr.backend.service.AutenticacionService;
+import com.inversioneslr.backend.service.RecuperacionContrasenaService;
 import com.inversioneslr.backend.service.RegistroUsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -29,16 +33,19 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Autenticación", description = "Registro e inicio de sesión de usuarios")
+@Tag(name = "Autenticación", description = "Registro, inicio de sesión y recuperación de contraseña")
 public class AutenticacionController {
 
     private final RegistroUsuarioService registroUsuarioService;
     private final AutenticacionService autenticacionService;
+    private final RecuperacionContrasenaService recuperacionContrasenaService;
 
     public AutenticacionController(RegistroUsuarioService registroUsuarioService,
-                                   AutenticacionService autenticacionService) {
+                                   AutenticacionService autenticacionService,
+                                   RecuperacionContrasenaService recuperacionContrasenaService) {
         this.registroUsuarioService = registroUsuarioService;
         this.autenticacionService = autenticacionService;
+        this.recuperacionContrasenaService = recuperacionContrasenaService;
     }
 
     @PostMapping("/login")
@@ -53,6 +60,35 @@ public class AutenticacionController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public ResponseEntity<LoginResponse> iniciarSesion(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(autenticacionService.iniciarSesion(request));
+    }
+
+    @PostMapping("/recuperacion/solicitud")
+    @Operation(summary = "Solicitar recuperación de contraseña",
+            description = "Inicia la recuperación simulada: si el correo pertenece a una cuenta activa, genera un "
+                    + "enlace de un solo uso y lo deja en el log del servidor en lugar de enviar un correo. "
+                    + "La respuesta es la misma exista o no el correo. Ruta pública.")
+    @ApiResponse(responseCode = "202", description = "Solicitud recibida (mismo mensaje para cualquier correo)",
+            content = @Content(schema = @Schema(implementation = MensajeResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Falta el correo o no tiene un formato válido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<MensajeResponse> solicitarRecuperacion(
+            @Valid @RequestBody SolicitudRecuperacionRequest request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(recuperacionContrasenaService.solicitar(request));
+    }
+
+    @PostMapping("/recuperacion/restablecer")
+    @Operation(summary = "Restablecer contraseña",
+            description = "Establece una nueva contraseña con el token de recuperación. El token vence a los "
+                    + "minutos configurados y solo se puede usar una vez. La contraseña sigue las reglas del "
+                    + "registro. Ruta pública.")
+    @ApiResponse(responseCode = "200", description = "Contraseña actualizada",
+            content = @Content(schema = @Schema(implementation = MensajeResponse.class)))
+    @ApiResponse(responseCode = "400",
+            description = "Datos inválidos, o el token no existe, venció o ya se usó (mismo mensaje en los tres casos)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<MensajeResponse> restablecerContrasena(
+            @Valid @RequestBody RestablecerContrasenaRequest request) {
+        return ResponseEntity.ok(recuperacionContrasenaService.restablecer(request));
     }
 
     @GetMapping("/sesion")

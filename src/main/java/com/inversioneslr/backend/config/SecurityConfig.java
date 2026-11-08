@@ -34,7 +34,8 @@ public class SecurityConfig {
             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"
     };
     private static final String[] RUTAS_PUBLICAS_POST = {
-            "/api/v1/auth/registro/huesped", "/api/v1/auth/registro/anfitrion", "/api/v1/auth/login"
+            "/api/v1/auth/registro/huesped", "/api/v1/auth/registro/anfitrion", "/api/v1/auth/login",
+            "/api/v1/auth/recuperacion/solicitud", "/api/v1/auth/recuperacion/restablecer"
     };
 
     @Bean

@@ -27,6 +27,9 @@ seguridad:
     expiracion-minutos: ${JWT_EXPIRACION_MINUTOS:60}
   cors:
     origenes-permitidos: ${FRONTEND_URL:http://localhost:4200}
+  recuperacion:
+    # Vigencia del enlace de recuperación de contraseña simulada.
+    minutos-validez: ${RECUPERACION_MINUTOS_VALIDEZ:30}
   admin-inicial:
     # Si no existe ningún ADMINISTRADOR y ambos tienen valor, se crea al arrancar.
     correo: ${ADMIN_CORREO:}
