@@ -14,6 +14,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Alojamiento publicado por un Anfitrión (tabla publicacion). Nace en BORRADOR y queda asociado para siempre
@@ -108,6 +110,41 @@ public class Publicacion {
         asignarDatos(datos, ciudad, tipo);
         this.tarifaLimpieza = tarifaLimpieza;
         this.reglas = reglas == null || reglas.isBlank() ? null : reglas.strip();
+    }
+
+    /**
+     * Campos que faltan para pedir la revisión, con el mensaje de cada uno. Vacío si la información mínima
+     * está completa.
+     */
+    public Map<String, String> informacionFaltante() {
+        Map<String, String> faltantes = new LinkedHashMap<>();
+        if (estaEnBlanco(descripcion)) {
+            faltantes.put("descripcion", "La descripción es obligatoria para solicitar la activación");
+        }
+        if (estaEnBlanco(direccionTextual)) {
+            faltantes.put("direccionTextual", "La dirección es obligatoria para solicitar la activación");
+        }
+        if (estaEnBlanco(barrioZona)) {
+            faltantes.put("barrioZona", "El barrio o zona es obligatorio para solicitar la activación");
+        }
+        if (estaEnBlanco(reglas)) {
+            faltantes.put("reglas", "Las reglas son obligatorias para solicitar la activación");
+        }
+        return faltantes;
+    }
+
+    /**
+     * Pasa a PENDIENTE_REVISION. El servicio verifica antes la transición y la información mínima.
+     */
+    public void solicitarRevision() {
+        if (!estado.puedePasarA(EstadoPublicacion.PENDIENTE_REVISION)) {
+            throw new IllegalStateException("No se puede pasar de " + estado + " a PENDIENTE_REVISION");
+        }
+        this.estado = EstadoPublicacion.PENDIENTE_REVISION;
+    }
+
+    private static boolean estaEnBlanco(String valor) {
+        return valor == null || valor.isBlank();
     }
 
     public boolean perteneceA(Long idUsuario) {

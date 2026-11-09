@@ -33,4 +33,19 @@ public enum EstadoPublicacion {
     public boolean exigeInformacionCompleta() {
         return this == PENDIENTE_REVISION || this == ACTIVA;
     }
+
+    /**
+     * Transiciones permitidas del flujo de revisión. El Anfitrión envía BORRADOR a PENDIENTE_REVISION; el
+     * Administrador activa, pausa o bloquea. Tras una pausa, el Administrador revisa y activa o bloquea; una
+     * BLOQUEADA no tiene salida definida todavía.
+     */
+    public boolean puedePasarA(EstadoPublicacion destino) {
+        return switch (this) {
+            case BORRADOR -> destino == PENDIENTE_REVISION;
+            case PENDIENTE_REVISION -> destino == ACTIVA || destino == BLOQUEADA;
+            case ACTIVA -> destino == PAUSADA || destino == BLOQUEADA;
+            case PAUSADA -> destino == ACTIVA || destino == BLOQUEADA;
+            case BLOQUEADA -> false;
+        };
+    }
 }
