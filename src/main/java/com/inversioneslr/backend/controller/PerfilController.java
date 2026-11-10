@@ -17,10 +17,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.inversioneslr.backend.dto.request.ActualizarPerfilRequest;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/v1/usuarios")
-@Tag(name = "Perfil", description = "Consulta del perfil propio")
+@Tag(name = "Perfil", description = "Consulta y actualización del perfil de la cuenta autenticada")
 public class PerfilController {
 
     private final PerfilService perfilService;
@@ -52,5 +56,39 @@ public class PerfilController {
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
         return ResponseEntity.ok(
                 perfilService.consultarPerfil(usuario.idUsuario()));
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = OpenApiConfig.ESQUEMA_BEARER)
+    @Operation(
+            summary = "Actualizar mi perfil",
+            description = "Actualiza únicamente los nombres y apellidos de la cuenta autenticada. "
+                    + "Disponible para Huésped, Anfitrión y Administrador "
+                    + "(MAR-136, HU-006, RF-USR-006). "
+                    + "No permite cambiar correo, contraseña, rol ni estado de cuenta. "
+                    + "La cuenta se identifica mediante la sesión, no mediante el cuerpo de la petición.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Perfil actualizado",
+            content = @Content(
+                    schema = @Schema(implementation = UsuarioResponse.class)))
+    @ApiResponse(
+            responseCode = "400",
+            description = "Datos inválidos o incompletos",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "401",
+            description = "Sin autenticación válida o cuenta no habilitada",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<UsuarioResponse> actualizarPerfil(
+            @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @Valid @RequestBody ActualizarPerfilRequest request
+    ) {
+        return ResponseEntity.ok(
+                perfilService.actualizarPerfil(usuario.idUsuario(), request)
+        );
     }
 }
