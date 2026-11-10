@@ -6,5 +6,6 @@ package com.inversioneslr.backend.model.enums;
 public enum AccionAuditoria {
     REGISTRO_USUARIO,
     INICIO_SESION,
-    ACCESO_DENEGADO
+    ACCESO_DENEGADO,
+    ACTUALIZACION_PERFIL
 }
