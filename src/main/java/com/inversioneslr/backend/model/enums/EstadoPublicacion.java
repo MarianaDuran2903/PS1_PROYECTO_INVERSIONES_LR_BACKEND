@@ -35,14 +35,15 @@ public enum EstadoPublicacion {
     }
 
     /**
-     * Transiciones permitidas del flujo de revisión. El Anfitrión envía BORRADOR a PENDIENTE_REVISION; el
-     * Administrador activa, pausa o bloquea. Tras una pausa, el Administrador revisa y activa o bloquea; una
-     * BLOQUEADA no tiene salida definida todavía.
+     * Transiciones permitidas del flujo de revisión. El Anfitrión envía BORRADOR a PENDIENTE_REVISION. El
+     * Administrador revisa una PENDIENTE_REVISION: la activa, la devuelve a BORRADOR para que el Anfitrión la
+     * corrija y la reenvíe, o la bloquea; a una ACTIVA la pausa o la bloquea. Tras una pausa, el Administrador
+     * revisa y activa o bloquea; una BLOQUEADA no tiene salida definida todavía.
      */
     public boolean puedePasarA(EstadoPublicacion destino) {
         return switch (this) {
             case BORRADOR -> destino == PENDIENTE_REVISION;
-            case PENDIENTE_REVISION -> destino == ACTIVA || destino == BLOQUEADA;
+            case PENDIENTE_REVISION -> destino == ACTIVA || destino == BORRADOR || destino == BLOQUEADA;
             case ACTIVA -> destino == PAUSADA || destino == BLOQUEADA;
             case PAUSADA -> destino == ACTIVA || destino == BLOQUEADA;
             case BLOQUEADA -> false;
