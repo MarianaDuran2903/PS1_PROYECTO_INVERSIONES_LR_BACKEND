@@ -19,7 +19,7 @@ class EstadoPublicacionTest {
 
     private static final Map<EstadoPublicacion, Set<EstadoPublicacion>> PERMITIDAS = new EnumMap<>(Map.of(
             BORRADOR, EnumSet.of(PENDIENTE_REVISION),
-            PENDIENTE_REVISION, EnumSet.of(ACTIVA, BLOQUEADA),
+            PENDIENTE_REVISION, EnumSet.of(ACTIVA, BORRADOR, BLOQUEADA),
             ACTIVA, EnumSet.of(PAUSADA, BLOQUEADA),
             PAUSADA, EnumSet.of(ACTIVA, BLOQUEADA),
             BLOQUEADA, EnumSet.noneOf(EstadoPublicacion.class)));

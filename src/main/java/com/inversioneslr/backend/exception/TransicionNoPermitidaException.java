@@ -23,4 +23,17 @@ public class TransicionNoPermitidaException extends RuntimeException {
             case BORRADOR -> "La publicación no se puede enviar a revisión en su estado actual";
         });
     }
+
+    /**
+     * Solo una publicación en PENDIENTE_REVISION puede aprobarse o rechazarse.
+     */
+    public static TransicionNoPermitidaException alRevisar(EstadoPublicacion actual) {
+        return new TransicionNoPermitidaException(switch (actual) {
+            case BORRADOR -> "La publicación está en borrador: el Anfitrión aún no la envía a revisión";
+            case ACTIVA -> "La publicación ya está activa";
+            case PAUSADA -> "La publicación está pausada y no está pendiente de revisión";
+            case BLOQUEADA -> "La publicación está bloqueada y no está pendiente de revisión";
+            case PENDIENTE_REVISION -> "La publicación no se puede revisar en su estado actual";
+        });
+    }
 }

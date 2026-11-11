@@ -137,10 +137,42 @@ public class Publicacion {
      * Pasa a PENDIENTE_REVISION. El servicio verifica antes la transición y la información mínima.
      */
     public void solicitarRevision() {
-        if (!estado.puedePasarA(EstadoPublicacion.PENDIENTE_REVISION)) {
-            throw new IllegalStateException("No se puede pasar de " + estado + " a PENDIENTE_REVISION");
+        pasarA(EstadoPublicacion.PENDIENTE_REVISION);
+    }
+
+    public boolean estaPendienteDeRevision() {
+        return estado == EstadoPublicacion.PENDIENTE_REVISION;
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación pendiente: queda ACTIVA. El servicio verifica antes la
+     * información mínima.
+     */
+    public void aprobar() {
+        exigirPendienteDeRevision();
+        pasarA(EstadoPublicacion.ACTIVA);
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación pendiente: vuelve a BORRADOR para que el Anfitrión la
+     * corrija y la reenvíe.
+     */
+    public void rechazar() {
+        exigirPendienteDeRevision();
+        pasarA(EstadoPublicacion.BORRADOR);
+    }
+
+    private void exigirPendienteDeRevision() {
+        if (!estaPendienteDeRevision()) {
+            throw new IllegalStateException("La publicación no está pendiente de revisión: " + estado);
         }
-        this.estado = EstadoPublicacion.PENDIENTE_REVISION;
+    }
+
+    private void pasarA(EstadoPublicacion destino) {
+        if (!estado.puedePasarA(destino)) {
+            throw new IllegalStateException("No se puede pasar de " + estado + " a " + destino);
+        }
+        this.estado = destino;
     }
 
     private static boolean estaEnBlanco(String valor) {
