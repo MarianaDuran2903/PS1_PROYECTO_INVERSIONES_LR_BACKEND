@@ -96,4 +96,35 @@ public class AutenticacionController {
         UsuarioResponse respuesta = registroUsuarioService.registrarAnfitrion(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
+
+    @PostMapping("/reactivar")
+    @Operation(
+            summary = "Reactivar mi cuenta",
+            description = "Reactiva una cuenta desactivada después de validar las credenciales. "
+                    + "No reactiva cuentas restringidas. "
+                    + "Al éxito, crea una sesión y devuelve un JWT (MAR-137, HU-007, RF-USR-007). "
+                    + "Ruta pública.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Cuenta reactivada y sesión creada",
+            content = @Content(
+                    schema = @Schema(implementation = LoginResponse.class)))
+    @ApiResponse(
+            responseCode = "400",
+            description = "La cuenta ya está activa o el cuerpo no es válido",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "401",
+            description = "Credenciales incorrectas o cuenta restringida",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "La cuenta sigue desactivada",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<LoginResponse> reactivarCuenta(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(autenticacionService.reactivarCuenta(request));
+    }
 }

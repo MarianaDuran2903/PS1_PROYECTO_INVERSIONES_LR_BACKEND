@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 import java.util.Map;
 
@@ -38,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PerfilControllerIntegrationTest {
 
     private static final String URL = "/api/v1/usuarios/me";
+    private static final String URL_ESTADO = URL + "/estado";
     private static final String CONTRASENA = "Segura#123";
 
     @Autowired
@@ -424,6 +426,166 @@ class PerfilControllerIntegrationTest {
                         notNullValue()))
                 .andExpect(jsonPath(
                         "$.paths['/api/v1/usuarios/me'].put.requestBody.required")
+                        .value(true));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Rol.class)
+    void cambiarEstado_cualquierRol_desactivaSoloSuCuentaYRegistraAuditoria(Rol rol)
+            throws Exception {
+        Usuario propio = crearUsuario("propio@example.com", rol);
+        Usuario ajeno = crearUsuario("ajeno@example.com", Rol.HUESPED);
+        String token = obtenerToken(propio.getCorreo());
+
+        mockMvc.perform(patch(URL_ESTADO)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("cuentaActiva", false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idUsuario")
+                        .value(propio.getIdUsuario().intValue()))
+                .andExpect(jsonPath("$.correo").value("propio@example.com"))
+                .andExpect(jsonPath("$.rol").value(rol.name()))
+                .andExpect(jsonPath("$.cuentaActiva").value(false))
+                .andExpect(jsonPath("$.contrasena").doesNotExist())
+                .andExpect(jsonPath("$.contrasenaHash").doesNotExist())
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        Usuario propioDesactivado = usuarioRepository.findById(
+                propio.getIdUsuario()).orElseThrow();
+
+        Usuario ajenoSinCambios = usuarioRepository.findById(
+                ajeno.getIdUsuario()).orElseThrow();
+
+        assertThat(propioDesactivado.isCuentaActiva()).isFalse();
+        assertThat(ajenoSinCambios.isCuentaActiva()).isTrue();
+
+        Long eventos = jdbcTemplate.queryForObject("""
+        SELECT COUNT(*)
+        FROM evento_auditoria
+        WHERE id_usuario = ?
+          AND accion = ?
+          AND tipo_entidad = ?
+          AND id_entidad = ?
+          AND resultado = ?
+        """,
+                Long.class,
+                propio.getIdUsuario(),
+                "DESACTIVACION_CUENTA",
+                "Usuario",
+                String.valueOf(propio.getIdUsuario()),
+                "EXITOSO");
+
+        assertThat(eventos).isEqualTo(1L);
+    }
+
+    @Test
+    void cambiarEstado_cuentaActivaTrue_responde400() throws Exception {
+        Usuario usuario = crearUsuario("ana@example.com", Rol.HUESPED);
+        String token = obtenerToken(usuario.getCorreo());
+
+        mockMvc.perform(patch(URL_ESTADO)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("cuentaActiva", true))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje")
+                        .value("La reactivación requiere iniciar sesión con tus credenciales."));
+
+        Usuario sinCambios = usuarioRepository.findById(
+                usuario.getIdUsuario()).orElseThrow();
+
+        assertThat(sinCambios.isCuentaActiva()).isTrue();
+
+        Long eventos = jdbcTemplate.queryForObject("""
+        SELECT COUNT(*)
+        FROM evento_auditoria
+        WHERE id_usuario = ?
+          AND accion = ?
+        """,
+                Long.class,
+                usuario.getIdUsuario(),
+                "DESACTIVACION_CUENTA");
+
+        assertThat(eventos).isZero();
+    }
+
+    @Test
+    void cambiarEstado_sinToken_responde401() throws Exception {
+        mockMvc.perform(patch(URL_ESTADO)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("cuentaActiva", false))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje").value("Debe iniciar sesión"));
+    }
+
+    @Test
+    void cambiarEstado_tokenInvalido_responde401() throws Exception {
+        mockMvc.perform(patch(URL_ESTADO)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer invalido")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("cuentaActiva", false))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void cambiarEstado_cuentaYaDesactivada_rechazaTokenPrevio() throws Exception {
+        Usuario usuario = crearUsuario("ana@example.com", Rol.HUESPED);
+        String token = obtenerToken(usuario.getCorreo());
+
+        jdbcTemplate.update(
+                "UPDATE usuario SET cuenta_activa = false WHERE id_usuario = ?",
+                usuario.getIdUsuario());
+
+        mockMvc.perform(patch(URL_ESTADO)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("cuentaActiva", false))))
+                .andExpect(status().isUnauthorized());
+
+        Usuario sinCambios = usuarioRepository.findById(
+                usuario.getIdUsuario()).orElseThrow();
+
+        assertThat(sinCambios.isCuentaActiva()).isFalse();
+
+        Long eventos = jdbcTemplate.queryForObject("""
+        SELECT COUNT(*)
+        FROM evento_auditoria
+        WHERE id_usuario = ?
+          AND accion = ?
+        """,
+                Long.class,
+                usuario.getIdUsuario(),
+                "DESACTIVACION_CUENTA");
+
+        assertThat(eventos).isZero();
+    }
+
+    @Test
+    void contratoOpenApi_documentaDesactivacionDeCuenta() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        "$.paths['" + URL_ESTADO + "'].patch.responses['200']",
+                        notNullValue()))
+                .andExpect(jsonPath(
+                        "$.paths['" + URL_ESTADO + "'].patch.responses['400']",
+                        notNullValue()))
+                .andExpect(jsonPath(
+                        "$.paths['" + URL_ESTADO + "'].patch.responses['401']",
+                        notNullValue()))
+                .andExpect(jsonPath(
+                        "$.paths['" + URL_ESTADO + "'].patch.security[0]['"
+                                + com.inversioneslr.backend.config.OpenApiConfig.ESQUEMA_BEARER
+                                + "']",
+                        notNullValue()))
+                .andExpect(jsonPath(
+                        "$.paths['" + URL_ESTADO + "'].patch.requestBody.required")
                         .value(true));
     }
 

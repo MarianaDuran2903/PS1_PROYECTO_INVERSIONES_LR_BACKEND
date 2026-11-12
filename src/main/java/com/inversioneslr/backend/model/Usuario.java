@@ -81,6 +81,10 @@ public class Usuario {
         return cuentaActiva;
     }
 
+    public void setCuentaActiva(boolean cuentaActiva) {
+        this.cuentaActiva = cuentaActiva;
+    }
+
     public boolean isRestringido() {
         return restringido;
     }

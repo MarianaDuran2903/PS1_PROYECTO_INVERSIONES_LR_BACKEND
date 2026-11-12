@@ -66,6 +66,16 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(CuentaDesactivadaException.class)
+    public ResponseEntity<ErrorResponse> manejarCuentaDesactivada(CuentaDesactivadaException ex, HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(EstadoCuentaInvalidoException.class)
+    public ResponseEntity<ErrorResponse> manejarEstadoInvalido(EstadoCuentaInvalidoException ex,  HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> manejarNoAutenticado(AuthenticationException ex,
                                                               HttpServletRequest request) {

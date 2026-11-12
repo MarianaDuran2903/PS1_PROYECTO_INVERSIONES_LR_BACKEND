@@ -1,6 +1,8 @@
 package com.inversioneslr.backend.service.impl;
 
+import com.inversioneslr.backend.dto.request.ActualizarEstadoCuentaRequest;
 import com.inversioneslr.backend.dto.request.ActualizarPerfilRequest;
+import com.inversioneslr.backend.exception.EstadoCuentaInvalidoException;
 import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
 import com.inversioneslr.backend.service.AuditoriaService;
@@ -67,4 +69,30 @@ public class PerfilServiceImpl implements PerfilService {
         return usuarioMapper.toResponse(actualizado);
     }
 
+    @Override
+    @Transactional
+    public UsuarioResponse cambiarEstado(Long idUsuario, ActualizarEstadoCuentaRequest request) {
+        if (request.cuentaActiva()) {
+            throw new EstadoCuentaInvalidoException(
+                    "La reactivación requiere iniciar sesión con tus credenciales.");
+        }
+
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .filter(actual -> actual.isCuentaActiva() && !actual.isRestringido())
+                .orElseThrow(() ->
+                        new BadCredentialsException("Debe iniciar sesión"));
+
+        usuario.setCuentaActiva(false);
+
+        Usuario actualizado = usuarioRepository.save(usuario);
+
+        auditoriaService.registrarExito(
+                actualizado,
+                AccionAuditoria.DESACTIVACION_CUENTA,
+                "Usuario",
+                String.valueOf(actualizado.getIdUsuario())
+        );
+
+        return usuarioMapper.toResponse(actualizado);
+    }
 }

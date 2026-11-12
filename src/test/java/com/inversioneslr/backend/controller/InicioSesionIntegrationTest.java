@@ -45,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InicioSesionIntegrationTest {
 
     private static final String URL_LOGIN = "/api/v1/auth/login";
+    private static final String URL_REACTIVAR = "/api/v1/auth/reactivar";
     private static final String URL_SESION = "/api/v1/auth/sesion";
     private static final String CONTRASENA = "Segura#123";
     private static final String MENSAJE_GENERICO = "Correo o contraseña incorrectos";
@@ -132,13 +133,88 @@ class InicioSesionIntegrationTest {
     }
 
     @Test
-    @DisplayName("Una cuenta desactivada recibe el mismo mensaje genérico")
-    void login_cuentaDesactivada_mensajeGenerico() throws Exception {
-        jdbcTemplate.update("UPDATE usuario SET cuenta_activa = false WHERE correo = 'huesped@correo.com'");
+    @DisplayName("Una cuenta desactivada responde 409 e invita a reactivarla")
+    void login_cuentaDesactivada_responde409() throws Exception {
+        jdbcTemplate.update(
+                "UPDATE usuario SET cuenta_activa = false WHERE correo = 'huesped@correo.com'");
 
         login("huesped@correo.com", CONTRASENA)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje").value(
+                        "Tu cuenta está desactivada. Puedes reactivarla para volver a acceder."))
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        assertThat(contarEventos("INICIO_SESION", "FALLIDO")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Reactivación: una cuenta desactivada puede reactivarse con credenciales válidas")
+    void reactivar_cuentaDesactivada_activaCuentaYCreaSesion() throws Exception {
+        jdbcTemplate.update(
+                "UPDATE usuario SET cuenta_activa = false WHERE correo = 'huesped@correo.com'");
+
+        login("huesped@correo.com", CONTRASENA)
+                .andExpect(status().isConflict());
+
+        String respuesta = reactivar("huesped@correo.com", CONTRASENA)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token", notNullValue()))
+                .andExpect(jsonPath("$.tipo").value("Bearer"))
+                .andExpect(jsonPath("$.usuario.correo").value("huesped@correo.com"))
+                .andExpect(jsonPath("$.usuario.cuentaActiva").value(true))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String token = objectMapper.readTree(respuesta).get("token").asText();
+
+        assertThat(contarEventos("ACTIVACION_CUENTA", "EXITOSO")).isEqualTo(1);
+        assertThat(contarEventos("INICIO_SESION", "EXITOSO")).isEqualTo(1);
+
+        mockMvc.perform(get(URL_SESION).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usuario.correo").value("huesped@correo.com"));
+    }
+
+    @Test
+    @DisplayName("Reactivación: credenciales inválidas rechazan sin activar la cuenta")
+    void reactivar_credencialesInvalidas_rechazaSinActivar() throws Exception {
+        jdbcTemplate.update(
+                "UPDATE usuario SET cuenta_activa = false WHERE correo = 'huesped@correo.com'");
+
+        reactivar("huesped@correo.com", "Otra#1234")
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.mensaje").value(MENSAJE_GENERICO));
+                .andExpect(jsonPath("$.mensaje").value(MENSAJE_GENERICO))
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        assertThat(contarEventos("ACTIVACION_CUENTA", "EXITOSO")).isZero();
+    }
+
+    @Test
+    @DisplayName("Reactivación: una cuenta restringida no puede reactivarse")
+    void reactivar_cuentaRestringida_rechazaSinActivar() throws Exception {
+        jdbcTemplate.update(
+                "UPDATE usuario SET cuenta_activa = false, restringido = true "
+                        + "WHERE correo = 'huesped@correo.com'");
+
+        reactivar("huesped@correo.com", CONTRASENA)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje").value(MENSAJE_GENERICO))
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        assertThat(contarEventos("ACTIVACION_CUENTA", "EXITOSO")).isZero();
+    }
+
+    @Test
+    @DisplayName("Reactivación: una cuenta ya activa responde 400")
+    void reactivar_cuentaYaActiva_responde400() throws Exception {
+        reactivar("huesped@correo.com", CONTRASENA)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje").value(
+                        "Tu cuenta ya está activa. Inicia sesión normalmente."))
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        assertThat(contarEventos("ACTIVACION_CUENTA", "EXITOSO")).isZero();
     }
 
     @Test
@@ -260,6 +336,16 @@ class InicioSesionIntegrationTest {
     private ResultActions login(String correo, String contrasena) throws Exception {
         String cuerpo = objectMapper.writeValueAsString(Map.of("correo", correo, "contrasena", contrasena));
         return mockMvc.perform(post(URL_LOGIN).contentType(MediaType.APPLICATION_JSON).content(cuerpo));
+    }
+
+    private ResultActions reactivar(String correo, String contrasena) throws Exception {
+        String cuerpo = objectMapper.writeValueAsString(Map.of("correo", correo, "contrasena", contrasena));
+
+        return mockMvc.perform(
+                post(URL_REACTIVAR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpo)
+        );
     }
 
     private String obtenerToken(String correo) throws Exception {
