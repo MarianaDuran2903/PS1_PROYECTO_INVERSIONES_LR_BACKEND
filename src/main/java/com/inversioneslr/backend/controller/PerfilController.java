@@ -1,6 +1,7 @@
 package com.inversioneslr.backend.controller;
 
 import com.inversioneslr.backend.config.OpenApiConfig;
+import com.inversioneslr.backend.dto.request.ActualizarEstadoCuentaRequest;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.dto.response.UsuarioResponse;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
@@ -14,13 +15,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import com.inversioneslr.backend.dto.request.ActualizarPerfilRequest;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/v1/usuarios")
@@ -91,4 +88,39 @@ public class PerfilController {
                 perfilService.actualizarPerfil(usuario.idUsuario(), request)
         );
     }
+
+    @PatchMapping("/me/estado")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = OpenApiConfig.ESQUEMA_BEARER)
+    @Operation(
+            summary = "Desactivar mi cuenta",
+            description = "Desactiva únicamente la cuenta autenticada. "
+                    + "Disponible para Huésped, Anfitrión y Administrador "
+                    + "(MAR-137, HU-007, RF-USR-007). "
+                    + "La cuenta se identifica mediante la sesión, no mediante el cuerpo de la petición. "
+                    + "La reactivación posterior requiere iniciar sesión con credenciales válidas.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Cuenta desactivada",
+            content = @Content(
+                    schema = @Schema(implementation = UsuarioResponse.class)))
+    @ApiResponse(
+            responseCode = "400",
+            description = "Estado solicitado no permitido o datos inválidos",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "401",
+            description = "Sin autenticación válida o cuenta no habilitada",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<UsuarioResponse> cambiarEstado(
+            @AuthenticationPrincipal UsuarioAutenticado usuario,
+            @Valid @RequestBody ActualizarEstadoCuentaRequest request
+    ) {
+        return ResponseEntity.ok(
+                perfilService.cambiarEstado(usuario.idUsuario(), request)
+        );
+    }
+
 }

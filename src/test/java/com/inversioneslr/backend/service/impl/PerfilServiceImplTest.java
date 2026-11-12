@@ -5,6 +5,8 @@ import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.Rol;
 import com.inversioneslr.backend.repository.UsuarioRepository;
+import com.inversioneslr.backend.dto.request.ActualizarEstadoCuentaRequest;
+import com.inversioneslr.backend.exception.EstadoCuentaInvalidoException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -201,5 +203,93 @@ class PerfilServiceImplTest {
         ).isInstanceOf(BadCredentialsException.class);
 
         verify(usuarioRepository, never()).save(any());
+    }
+
+    private ActualizarEstadoCuentaRequest desactivacion() {
+        return new ActualizarEstadoCuentaRequest(false);
+    }
+
+    @Test
+    void cambiarEstado_false_desactivaCuentaYRegistraAuditoria() {
+        when(usuarioRepository.findById(7L))
+                .thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(any(Usuario.class)))
+                .thenAnswer(invocacion -> invocacion.getArgument(0));
+
+        UsuarioResponse respuesta = servicio.cambiarEstado(7L, desactivacion());
+
+        assertThat(respuesta.idUsuario()).isEqualTo(7L);
+        assertThat(respuesta.correo()).isEqualTo("ana@example.com");
+        assertThat(respuesta.rol()).isEqualTo(Rol.HUESPED);
+        assertThat(respuesta.cuentaActiva()).isFalse();
+
+        assertThat(usuario.isCuentaActiva()).isFalse();
+
+        verify(auditoriaService).registrarExito(
+                usuario,
+                AccionAuditoria.DESACTIVACION_CUENTA,
+                "Usuario",
+                "7"
+        );
+    }
+
+    @Test
+    void cambiarEstado_true_rechazaSinConsultarNiGuardar() {
+        ActualizarEstadoCuentaRequest request =
+                new ActualizarEstadoCuentaRequest(true);
+
+        assertThatThrownBy(() -> servicio.cambiarEstado(7L, request))
+                .isInstanceOf(EstadoCuentaInvalidoException.class)
+                .hasMessage("La reactivación requiere iniciar sesión con tus credenciales.");
+
+        verify(usuarioRepository, never()).findById(any());
+        verify(usuarioRepository, never()).save(any());
+        verify(auditoriaService, never()).registrarExito(
+                any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    void cambiarEstado_usuarioInexistente_rechaza() {
+        when(usuarioRepository.findById(7L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.cambiarEstado(7L, desactivacion()))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(usuarioRepository, never()).save(any());
+        verify(auditoriaService, never()).registrarExito(
+                any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    void cambiarEstado_cuentaInactiva_rechaza() {
+        ReflectionTestUtils.setField(usuario, "cuentaActiva", false);
+        when(usuarioRepository.findById(7L))
+                .thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> servicio.cambiarEstado(7L, desactivacion()))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(usuarioRepository, never()).save(any());
+        verify(auditoriaService, never()).registrarExito(
+                any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    void cambiarEstado_cuentaRestringida_rechaza() {
+        ReflectionTestUtils.setField(usuario, "restringido", true);
+        when(usuarioRepository.findById(7L))
+                .thenReturn(Optional.of(usuario));
+
+        assertThatThrownBy(() -> servicio.cambiarEstado(7L, desactivacion()))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(usuarioRepository, never()).save(any());
+        verify(auditoriaService, never()).registrarExito(
+                any(), any(), any(), any()
+        );
     }
 }
