@@ -7,6 +7,7 @@ import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.Rol;
 import com.inversioneslr.backend.repository.EventoAuditoriaRepository;
 import com.inversioneslr.backend.repository.UsuarioRepository;
+import com.inversioneslr.backend.repository.PublicacionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -52,6 +53,9 @@ class PerfilControllerIntegrationTest {
     private UsuarioRepository usuarioRepository;
 
     @Autowired
+    private PublicacionRepository publicacionRepository;
+
+    @Autowired
     private EventoAuditoriaRepository eventoAuditoriaRepository;
 
     @Autowired
@@ -63,6 +67,7 @@ class PerfilControllerIntegrationTest {
     @BeforeEach
     void limpiar() {
         eventoAuditoriaRepository.deleteAllInBatch();
+        publicacionRepository.deleteAllInBatch();
         usuarioRepository.deleteAllInBatch();
     }
 
