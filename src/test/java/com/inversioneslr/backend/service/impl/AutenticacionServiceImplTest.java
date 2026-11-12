@@ -4,6 +4,8 @@ import com.inversioneslr.backend.dto.request.LoginRequest;
 import com.inversioneslr.backend.dto.response.LoginResponse;
 import com.inversioneslr.backend.dto.response.SesionResponse;
 import com.inversioneslr.backend.exception.CredencialesInvalidasException;
+import com.inversioneslr.backend.exception.CuentaDesactivadaException;
+import com.inversioneslr.backend.exception.EstadoCuentaInvalidoException;
 import com.inversioneslr.backend.mapper.UsuarioMapper;
 import com.inversioneslr.backend.model.NombreCompleto;
 import com.inversioneslr.backend.model.Usuario;
@@ -118,20 +120,27 @@ class AutenticacionServiceImplTest {
     }
 
     @Test
-    @DisplayName("Cuenta desactivada → mismo mensaje genérico y motivo en la auditoría")
-    void iniciarSesion_cuentaDesactivada_rechazaConMensajeGenerico() {
+    @DisplayName("Cuenta desactivada → 409 con CuentaDesactivadaException y evento fallido")
+    void iniciarSesion_cuentaDesactivada_rechazaConCuentaDesactivada() {
         ReflectionTestUtils.setField(usuario, "cuentaActiva", false);
-        when(usuarioRepository.findByCorreoIgnoreCase("carlos@correo.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByCorreoIgnoreCase("carlos@correo.com"))
+                .thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("Segura#123", HASH)).thenReturn(true);
         LoginRequest request = new LoginRequest("carlos@correo.com", "Segura#123");
 
         assertThatThrownBy(() -> servicio.iniciarSesion(request))
-                .isInstanceOf(CredencialesInvalidasException.class)
-                .hasMessage("Correo o contraseña incorrectos");
+                .isInstanceOf(CuentaDesactivadaException.class)
+                .hasMessage("Tu cuenta está desactivada. Puedes reactivarla para volver a acceder.");
 
         verify(tokenService, never()).generar(any());
-        verify(auditoriaService).registrarIntentoFallido(eq(5L), anyString(), eq(AccionAuditoria.INICIO_SESION),
-                anyString(), eq("5"), eq(AutenticacionServiceImpl.MOTIVO_CUENTA_DESACTIVADA));
+        verify(auditoriaService).registrarIntentoFallido(
+                eq(5L),
+                anyString(),
+                eq(AccionAuditoria.INICIO_SESION),
+                anyString(),
+                eq("5"),
+                eq(AutenticacionServiceImpl.MOTIVO_CUENTA_DESACTIVADA)
+        );
     }
 
     @Test
@@ -147,6 +156,107 @@ class AutenticacionServiceImplTest {
 
         verify(auditoriaService).registrarIntentoFallido(eq(5L), anyString(), eq(AccionAuditoria.INICIO_SESION),
                 anyString(), eq("5"), eq(AutenticacionServiceImpl.MOTIVO_CUENTA_RESTRINGIDA));
+    }
+
+    @Test
+    @DisplayName("Reactivación: credenciales válidas activan la cuenta, emiten token y registran eventos")
+    void reactivarCuenta_credencialesValidas_activaCuentaDevuelveTokenYRegistraEventos() {
+        ReflectionTestUtils.setField(usuario, "cuentaActiva", false);
+        when(usuarioRepository.findByCorreoIgnoreCase("carlos@correo.com"))
+                .thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("Segura#123", HASH)).thenReturn(true);
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(tokenService.generar(usuario))
+                .thenReturn(new TokenGenerado("token-jwt", AHORA, EXPIRA));
+
+        LoginResponse respuesta = servicio.reactivarCuenta(
+                new LoginRequest(" Carlos@Correo.com ", "Segura#123"));
+
+        assertThat(respuesta.token()).isEqualTo("token-jwt");
+        assertThat(respuesta.tipo()).isEqualTo("Bearer");
+        assertThat(respuesta.expiraEn()).isEqualTo(3600);
+        assertThat(respuesta.usuario().cuentaActiva()).isTrue();
+
+        verify(auditoriaService).registrarExito(
+                usuario,
+                AccionAuditoria.ACTIVACION_CUENTA,
+                AutenticacionServiceImpl.ENTIDAD_USUARIO,
+                "5"
+        );
+        verify(auditoriaService).registrarExito(
+                usuario,
+                AccionAuditoria.INICIO_SESION,
+                AutenticacionServiceImpl.ENTIDAD_USUARIO,
+                "5"
+        );
+    }
+
+    @Test
+    @DisplayName("Reactivación: contraseña incorrecta rechaza sin activar ni emitir token")
+    void reactivarCuenta_contrasenaIncorrecta_rechazaSinActivar() {
+        when(usuarioRepository.findByCorreoIgnoreCase("carlos@correo.com"))
+                .thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("Otra#1234", HASH)).thenReturn(false);
+
+        assertThatThrownBy(() -> servicio.reactivarCuenta(
+                new LoginRequest("carlos@correo.com", "Otra#1234")))
+                .isInstanceOf(CredencialesInvalidasException.class)
+                .hasMessage("Correo o contraseña incorrectos");
+
+        verify(usuarioRepository, never()).save(any());
+        verify(tokenService, never()).generar(any());
+        verify(auditoriaService).registrarIntentoFallido(
+                eq(5L),
+                anyString(),
+                eq(AccionAuditoria.INICIO_SESION),
+                anyString(),
+                eq("5"),
+                eq(AutenticacionServiceImpl.MOTIVO_CREDENCIALES_INVALIDAS)
+        );
+    }
+
+    @Test
+    @DisplayName("Reactivación: cuenta restringida rechaza sin activar ni emitir token")
+    void reactivarCuenta_cuentaRestringida_rechazaSinActivar() {
+        ReflectionTestUtils.setField(usuario, "restringido", true);
+        when(usuarioRepository.findByCorreoIgnoreCase("carlos@correo.com"))
+                .thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("Segura#123", HASH)).thenReturn(true);
+
+        assertThatThrownBy(() -> servicio.reactivarCuenta(
+                new LoginRequest("carlos@correo.com", "Segura#123")))
+                .isInstanceOf(CredencialesInvalidasException.class)
+                .hasMessage("Correo o contraseña incorrectos");
+
+        verify(usuarioRepository, never()).save(any());
+        verify(tokenService, never()).generar(any());
+        verify(auditoriaService).registrarIntentoFallido(
+                eq(5L),
+                anyString(),
+                eq(AccionAuditoria.INICIO_SESION),
+                anyString(),
+                eq("5"),
+                eq(AutenticacionServiceImpl.MOTIVO_CUENTA_RESTRINGIDA)
+        );
+    }
+
+    @Test
+    @DisplayName("Reactivación: cuenta ya activa rechaza la operación")
+    void reactivarCuenta_cuentaYaActiva_rechazaOperacion() {
+        when(usuarioRepository.findByCorreoIgnoreCase("carlos@correo.com"))
+                .thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("Segura#123", HASH)).thenReturn(true);
+
+        assertThatThrownBy(() -> servicio.reactivarCuenta(
+                new LoginRequest("carlos@correo.com", "Segura#123")))
+                .isInstanceOf(EstadoCuentaInvalidoException.class)
+                .hasMessage("Tu cuenta ya está activa. Inicia sesión normalmente.");
+
+        verify(usuarioRepository, never()).save(any());
+        verify(tokenService, never()).generar(any());
+        verify(auditoriaService, never()).registrarExito(
+                any(), any(), any(), any()
+        );
     }
 
     @Test
