@@ -12,7 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * Supertipo de los roles HUESPED, ANFITRION y ADMINISTRADOR (tabla usuario, MER v0.3).
+ * Supertipo de los roles HUESPED, ANFITRION y ADMINISTRADOR (tabla usuario).
  */
 @Entity
 @Table(name = "usuario")
