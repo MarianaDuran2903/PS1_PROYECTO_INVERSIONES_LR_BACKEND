@@ -36,6 +36,10 @@ public class SecurityConfig {
     private static final String[] RUTAS_PUBLICAS_POST = {
             "/api/v1/auth/registro/huesped", "/api/v1/auth/registro/anfitrion", "/api/v1/auth/login"
     };
+    /** Consulta que usan los Visitantes sin iniciar sesión. */
+    private static final String[] RUTAS_PUBLICAS_GET = {
+            "/api/v1/alojamientos"
+    };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, AutenticacionService autenticacionService,
@@ -50,6 +54,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, RUTAS_PUBLICAS_POST).permitAll()
+                        .requestMatchers(HttpMethod.GET, RUTAS_PUBLICAS_GET).permitAll()
                         .requestMatchers(RUTAS_DOCUMENTACION).permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())

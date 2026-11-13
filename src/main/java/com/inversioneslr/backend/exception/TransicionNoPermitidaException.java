@@ -36,4 +36,17 @@ public class TransicionNoPermitidaException extends RuntimeException {
             case PENDIENTE_REVISION -> "La publicación no se puede revisar en su estado actual";
         });
     }
+
+    /**
+     * Solo una publicación ACTIVA puede pausarse.
+     */
+    public static TransicionNoPermitidaException alPausar(EstadoPublicacion actual) {
+        return new TransicionNoPermitidaException(switch (actual) {
+            case BORRADOR -> "La publicación está en borrador: aún no se ha publicado, no hay nada que pausar";
+            case PENDIENTE_REVISION -> "La publicación está en revisión: solo se puede pausar una publicación activa";
+            case PAUSADA -> "La publicación ya está pausada";
+            case BLOQUEADA -> "La publicación está bloqueada y no se puede pausar";
+            case ACTIVA -> "La publicación no se puede pausar en su estado actual";
+        });
+    }
 }

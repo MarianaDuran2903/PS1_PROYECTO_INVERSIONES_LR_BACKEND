@@ -169,6 +169,25 @@ public class PublicacionServiceImpl implements PublicacionService {
         return publicacionMapper.toResponse(guardada);
     }
 
+    @Override
+    @Transactional
+    public PublicacionResponse pausar(Long idPublicacion, UsuarioAutenticado autenticado) {
+        Publicacion publicacion = buscarPropia(idPublicacion, autenticado);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.puedePasarA(EstadoPublicacion.PAUSADA)) {
+            auditoriaService.registrarFallo(autenticado.correo(), AccionAuditoria.PAUSAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alPausar(anterior);
+        }
+
+        publicacion.pausar();
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        auditoriaService.registrarExito(guardada.getAnfitrion(), AccionAuditoria.PAUSAR_PUBLICACION,
+                ENTIDAD_PUBLICACION, String.valueOf(guardada.getIdPublicacion()),
+                anterior + " -> " + guardada.getEstado());
+        return publicacionMapper.toResponse(guardada);
+    }
+
     /**
      * Busca la publicación y verifica que sea del Anfitrión autenticado. El intento sobre una ajena queda
      * registrado como acceso denegado.

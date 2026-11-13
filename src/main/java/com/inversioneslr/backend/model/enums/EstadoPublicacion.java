@@ -2,7 +2,8 @@ package com.inversioneslr.backend.model.enums;
 
 /**
  * Estados de una publicación (columna publicacion.estado). Flujo: el Anfitrión crea en BORRADOR y envía a
- * PENDIENTE_REVISION; el Administrador activa, pausa o bloquea.
+ * PENDIENTE_REVISION; el Administrador activa o bloquea; el Anfitrión pausa una ACTIVA. Solo las ACTIVAS se
+ * ofrecen en las búsquedas.
  */
 public enum EstadoPublicacion {
     BORRADOR,
@@ -37,8 +38,8 @@ public enum EstadoPublicacion {
     /**
      * Transiciones permitidas del flujo de revisión. El Anfitrión envía BORRADOR a PENDIENTE_REVISION. El
      * Administrador revisa una PENDIENTE_REVISION: la activa, la devuelve a BORRADOR para que el Anfitrión la
-     * corrija y la reenvíe, o la bloquea; a una ACTIVA la pausa o la bloquea. Tras una pausa, el Administrador
-     * revisa y activa o bloquea; una BLOQUEADA no tiene salida definida todavía.
+     * corrija y la reenvíe, o la bloquea. A una ACTIVA la pausa su Anfitrión o la bloquea el Administrador. Tras
+     * una pausa, el Administrador revisa y activa o bloquea; una BLOQUEADA no tiene salida definida todavía.
      */
     public boolean puedePasarA(EstadoPublicacion destino) {
         return switch (this) {
