@@ -26,5 +26,7 @@ public interface AutenticacionService {
      */
     Optional<UsuarioAutenticado> autenticarToken(String token);
 
+    LoginResponse reactivarCuenta(LoginRequest request);
+
     SesionResponse obtenerSesion(UsuarioAutenticado usuario);
 }

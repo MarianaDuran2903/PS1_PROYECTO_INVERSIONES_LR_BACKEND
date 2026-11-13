@@ -61,6 +61,10 @@ public class Usuario {
         return nombre;
     }
 
+    public void setNombre(NombreCompleto nombre) {
+        this.nombre = nombre;
+    }
+
     public String getCorreo() {
         return correo;
     }
@@ -75,6 +79,10 @@ public class Usuario {
 
     public boolean isCuentaActiva() {
         return cuentaActiva;
+    }
+
+    public void setCuentaActiva(boolean cuentaActiva) {
+        this.cuentaActiva = cuentaActiva;
     }
 
     public boolean isRestringido() {
