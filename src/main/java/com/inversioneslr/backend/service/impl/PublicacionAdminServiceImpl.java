@@ -53,6 +53,9 @@ public class PublicacionAdminServiceImpl implements PublicacionAdminService {
     static final String MENSAJE_INFORMACION_INCOMPLETA =
             "La publicación no tiene la información mínima para activarse";
     static final String MENSAJE_SIN_PENDIENTES = "No hay publicaciones pendientes de revisión";
+    static final String MENSAJE_SIN_PUBLICACIONES = "No hay publicaciones para mostrar";
+    /** Al gestionar, lo más reciente va primero. */
+    private static final Sort ORDEN_MAS_RECIENTES_PRIMERO = Sort.by(Sort.Direction.DESC, "idPublicacion");
     /** Las pendientes se atienden en orden de llegada: el identificador crece con cada publicación nueva. */
     private static final Sort ORDEN_MAS_ANTIGUAS_PRIMERO = Sort.by(Sort.Direction.ASC, "idPublicacion");
 
@@ -132,6 +135,24 @@ public class PublicacionAdminServiceImpl implements PublicacionAdminService {
                 kv("resultado", "EXITOSO"),
                 kv("totalElementos", resultado.getTotalElements()));
         return PaginaResponse.de(resultado, publicacionMapper::toResponse, MENSAJE_SIN_PENDIENTES);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginaResponse<PublicacionResponse> listar(UsuarioAutenticado administrador, EstadoPublicacion estado,
+                                                      int pagina, int tamano) {
+        PageRequest solicitud = PageRequest.of(pagina, tamano, ORDEN_MAS_RECIENTES_PRIMERO);
+        Page<Publicacion> resultado = estado == null
+                ? publicacionRepository.findAllBy(solicitud)
+                : publicacionRepository.findByEstado(estado, solicitud);
+        log.info("Consulta administrativa de publicaciones {} {} {} {} {} {}",
+                kv("usuario", administrador.correo()),
+                kv("accion", "CONSULTAR_PUBLICACIONES_ADMIN"),
+                kv("entidad", ENTIDAD_PUBLICACION),
+                kv("estado", estado == null ? "TODOS" : estado.name()),
+                kv("resultado", "EXITOSO"),
+                kv("totalElementos", resultado.getTotalElements()));
+        return PaginaResponse.de(resultado, publicacionMapper::toResponse, MENSAJE_SIN_PUBLICACIONES);
     }
 
     @Override

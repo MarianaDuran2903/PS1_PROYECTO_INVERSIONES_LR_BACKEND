@@ -6,6 +6,7 @@ import com.inversioneslr.backend.dto.request.ReactivacionPublicacionRequest;
 import com.inversioneslr.backend.dto.request.RechazoPublicacionRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
+import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 
 /**
@@ -39,6 +40,14 @@ public interface PublicacionAdminService {
      * mensaje lo informa.
      */
     PaginaResponse<PublicacionResponse> listarPendientes(UsuarioAutenticado administrador, int pagina, int tamano);
+
+    /**
+     * Lista, de la más reciente a la más antigua y paginadas, las publicaciones de cualquier Anfitrión con la
+     * información completa, incluido el motivo del bloqueo. Con un estado, devuelve solo las de ese estado; con
+     * estado nulo, todas. Si no hay ninguna, la lista viene vacía y el campo mensaje lo informa.
+     */
+    PaginaResponse<PublicacionResponse> listar(UsuarioAutenticado administrador, EstadoPublicacion estado,
+                                               int pagina, int tamano);
 
     /**
      * Aprueba una publicación pendiente: pasa a ACTIVA y la decisión queda registrada con el Administrador.

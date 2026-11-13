@@ -8,6 +8,7 @@ import com.inversioneslr.backend.dto.request.RechazoPublicacionRequest;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
+import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 import com.inversioneslr.backend.service.PublicacionAdminService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,6 +44,39 @@ public class PublicacionAdminController {
 
     public PublicacionAdminController(PublicacionAdminService publicacionAdminService) {
         this.publicacionAdminService = publicacionAdminService;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Listar publicaciones por estado (Administrador)",
+            description = "Devuelve, paginadas y de la más reciente a la más antigua, las publicaciones de cualquier "
+                    + "Anfitrión con la información completa, incluido el motivo del bloqueo. El parámetro estado "
+                    + "(BORRADOR, PENDIENTE_REVISION, ACTIVA, PAUSADA o BLOQUEADA, en mayúsculas) filtra por "
+                    + "estado; sin él devuelve todas. Sirve para encontrar las publicaciones pausadas o bloqueadas "
+                    + "que se pueden reactivar. Si no hay ninguna, la lista viene vacía y el campo mensaje lo "
+                    + "informa. Solo rol ADMINISTRADOR.")
+    @ApiResponse(responseCode = "200", description = "Página de publicaciones (puede estar vacía)",
+            content = @Content(schema = @Schema(implementation = PaginaResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Estado o parámetros de paginación inválidos",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin token o token inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "El usuario no tiene rol Administrador",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<PaginaResponse<PublicacionResponse>> listar(
+            @Parameter(description = "Estado por el que filtrar; sin valor se devuelven todas", example = "BLOQUEADA")
+            @RequestParam(name = "estado", required = false) EstadoPublicacion estado,
+            @Parameter(description = "Número de página, empezando en 0", example = "0")
+            @RequestParam(name = "pagina", defaultValue = "0")
+            @Min(value = 0, message = "La página debe ser 0 o mayor") int pagina,
+            @Parameter(description = "Elementos por página (1 a " + PublicacionController.TAMANO_MAXIMO + ")",
+                    example = "20")
+            @RequestParam(name = "tamano", defaultValue = "20")
+            @Min(value = 1, message = "El tamaño debe estar entre 1 y " + PublicacionController.TAMANO_MAXIMO)
+            @Max(value = PublicacionController.TAMANO_MAXIMO,
+                    message = "El tamaño debe estar entre 1 y " + PublicacionController.TAMANO_MAXIMO) int tamano,
+            @AuthenticationPrincipal UsuarioAutenticado administrador) {
+        return ResponseEntity.ok(publicacionAdminService.listar(administrador, estado, pagina, tamano));
     }
 
     @GetMapping("/pendientes")
