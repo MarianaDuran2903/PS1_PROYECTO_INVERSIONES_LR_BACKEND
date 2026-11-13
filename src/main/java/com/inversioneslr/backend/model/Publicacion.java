@@ -74,6 +74,9 @@ public class Publicacion {
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoPublicacion estado = EstadoPublicacion.BORRADOR;
 
+    @Column(name = "motivo_bloqueo", columnDefinition = "text")
+    private String motivoBloqueo;
+
     protected Publicacion() {
         // Requerido por JPA
     }
@@ -170,6 +173,31 @@ public class Publicacion {
         pasarA(EstadoPublicacion.PAUSADA);
     }
 
+    /**
+     * Decisión del Administrador sobre una publicación engañosa o incumplidora: queda BLOQUEADA, con el
+     * motivo, y deja de ofrecerse en las búsquedas. El servicio verifica antes la transición.
+     */
+    public void bloquear(String motivo) {
+        if (estaEnBlanco(motivo)) {
+            throw new IllegalArgumentException("El motivo del bloqueo es obligatorio");
+        }
+        pasarA(EstadoPublicacion.BLOQUEADA);
+        this.motivoBloqueo = motivo.strip();
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación PAUSADA o BLOQUEADA: vuelve a ACTIVA y, si estaba
+     * bloqueada, el motivo del bloqueo se limpia (el historial queda en la auditoría). El servicio verifica
+     * antes la información mínima.
+     */
+    public void reactivar() {
+        if (!estado.permiteReactivacion()) {
+            throw new IllegalStateException("La publicación no está pausada ni bloqueada: " + estado);
+        }
+        pasarA(EstadoPublicacion.ACTIVA);
+        this.motivoBloqueo = null;
+    }
+
     private void exigirPendienteDeRevision() {
         if (!estaPendienteDeRevision()) {
             throw new IllegalStateException("La publicación no está pendiente de revisión: " + estado);
@@ -245,5 +273,12 @@ public class Publicacion {
 
     public EstadoPublicacion getEstado() {
         return estado;
+    }
+
+    /**
+     * Motivo del bloqueo vigente; nulo si la publicación no está BLOQUEADA.
+     */
+    public String getMotivoBloqueo() {
+        return motivoBloqueo;
     }
 }

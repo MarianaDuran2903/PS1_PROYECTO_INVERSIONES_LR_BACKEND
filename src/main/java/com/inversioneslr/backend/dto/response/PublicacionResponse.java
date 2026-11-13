@@ -49,6 +49,10 @@ public record PublicacionResponse(
 
         @Schema(description = "Reglas de la casa (nulo si no se registraron)", example = "No se admiten mascotas.",
                 nullable = true)
-        String reglas
+        String reglas,
+
+        @Schema(description = "Motivo del bloqueo vigente (nulo si la publicación no está BLOQUEADA)",
+                example = "Las fotos pertenecen a otro alojamiento", nullable = true)
+        String motivoBloqueo
 ) {
 }

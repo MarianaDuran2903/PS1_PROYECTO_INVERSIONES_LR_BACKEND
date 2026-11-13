@@ -49,4 +49,28 @@ public class TransicionNoPermitidaException extends RuntimeException {
             case ACTIVA -> "La publicación no se puede pausar en su estado actual";
         });
     }
+
+    /**
+     * El Administrador bloquea una publicación en revisión, activa o pausada; un borrador aún no se ha
+     * publicado y una bloqueada ya lo está.
+     */
+    public static TransicionNoPermitidaException alBloquear(EstadoPublicacion actual) {
+        return new TransicionNoPermitidaException(switch (actual) {
+            case BORRADOR -> "La publicación está en borrador: aún no se ha publicado, no hay nada que bloquear";
+            case BLOQUEADA -> "La publicación ya está bloqueada";
+            case PENDIENTE_REVISION, ACTIVA, PAUSADA -> "La publicación no se puede bloquear en su estado actual";
+        });
+    }
+
+    /**
+     * El Administrador reactiva solo una publicación pausada o bloqueada; una en revisión se aprueba.
+     */
+    public static TransicionNoPermitidaException alReactivar(EstadoPublicacion actual) {
+        return new TransicionNoPermitidaException(switch (actual) {
+            case ACTIVA -> "La publicación ya está activa";
+            case BORRADOR -> "La publicación está en borrador: el Anfitrión debe enviarla a revisión";
+            case PENDIENTE_REVISION -> "La publicación está en revisión: se aprueba, no se reactiva";
+            case PAUSADA, BLOQUEADA -> "La publicación no se puede reactivar en su estado actual";
+        });
+    }
 }

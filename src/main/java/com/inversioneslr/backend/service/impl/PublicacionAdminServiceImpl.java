@@ -1,7 +1,9 @@
 package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.dto.request.ActualizarPublicacionRequest;
+import com.inversioneslr.backend.dto.request.BloqueoPublicacionRequest;
 import com.inversioneslr.backend.dto.request.EdicionAdministrativaRequest;
+import com.inversioneslr.backend.dto.request.ReactivacionPublicacionRequest;
 import com.inversioneslr.backend.dto.request.RechazoPublicacionRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
@@ -51,6 +53,9 @@ public class PublicacionAdminServiceImpl implements PublicacionAdminService {
     static final String MENSAJE_INFORMACION_INCOMPLETA =
             "La publicación no tiene la información mínima para activarse";
     static final String MENSAJE_SIN_PENDIENTES = "No hay publicaciones pendientes de revisión";
+    static final String MENSAJE_SIN_PUBLICACIONES = "No hay publicaciones para mostrar";
+    /** Al gestionar, lo más reciente va primero. */
+    private static final Sort ORDEN_MAS_RECIENTES_PRIMERO = Sort.by(Sort.Direction.DESC, "idPublicacion");
     /** Las pendientes se atienden en orden de llegada: el identificador crece con cada publicación nueva. */
     private static final Sort ORDEN_MAS_ANTIGUAS_PRIMERO = Sort.by(Sort.Direction.ASC, "idPublicacion");
 
@@ -133,6 +138,24 @@ public class PublicacionAdminServiceImpl implements PublicacionAdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PaginaResponse<PublicacionResponse> listar(UsuarioAutenticado administrador, EstadoPublicacion estado,
+                                                      int pagina, int tamano) {
+        PageRequest solicitud = PageRequest.of(pagina, tamano, ORDEN_MAS_RECIENTES_PRIMERO);
+        Page<Publicacion> resultado = estado == null
+                ? publicacionRepository.findAllBy(solicitud)
+                : publicacionRepository.findByEstado(estado, solicitud);
+        log.info("Consulta administrativa de publicaciones {} {} {} {} {} {}",
+                kv("usuario", administrador.correo()),
+                kv("accion", "CONSULTAR_PUBLICACIONES_ADMIN"),
+                kv("entidad", ENTIDAD_PUBLICACION),
+                kv("estado", estado == null ? "TODOS" : estado.name()),
+                kv("resultado", "EXITOSO"),
+                kv("totalElementos", resultado.getTotalElements()));
+        return PaginaResponse.de(resultado, publicacionMapper::toResponse, MENSAJE_SIN_PUBLICACIONES);
+    }
+
+    @Override
     @Transactional
     public PublicacionResponse aprobar(Long idPublicacion, UsuarioAutenticado administrador) {
         Publicacion publicacion = buscarPendiente(idPublicacion, administrador, AccionAuditoria.APROBAR_PUBLICACION);
@@ -163,6 +186,55 @@ public class PublicacionAdminServiceImpl implements PublicacionAdminService {
         Usuario admin = usuarioRepository.getReferenceById(administrador.idUsuario());
         auditoriaService.registrarExito(admin, AccionAuditoria.RECHAZAR_PUBLICACION, ENTIDAD_PUBLICACION,
                 String.valueOf(guardada.getIdPublicacion()), request.motivo().strip());
+        return publicacionMapper.toResponse(guardada);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponse bloquear(Long idPublicacion, BloqueoPublicacionRequest request,
+                                        UsuarioAutenticado administrador) {
+        Publicacion publicacion = buscar(idPublicacion);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.puedePasarA(EstadoPublicacion.BLOQUEADA)) {
+            auditoriaService.registrarFallo(administrador.correo(), AccionAuditoria.BLOQUEAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alBloquear(anterior);
+        }
+
+        publicacion.bloquear(request.motivo());
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        // Quién (el Administrador del token), cuándo (fecha del evento) y por qué (el motivo).
+        Usuario admin = usuarioRepository.getReferenceById(administrador.idUsuario());
+        auditoriaService.registrarExito(admin, AccionAuditoria.BLOQUEAR_PUBLICACION, ENTIDAD_PUBLICACION,
+                String.valueOf(guardada.getIdPublicacion()), request.motivo().strip());
+        return publicacionMapper.toResponse(guardada);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponse reactivar(Long idPublicacion, ReactivacionPublicacionRequest request,
+                                         UsuarioAutenticado administrador) {
+        Publicacion publicacion = buscar(idPublicacion);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.permiteReactivacion()) {
+            auditoriaService.registrarFallo(administrador.correo(), AccionAuditoria.REACTIVAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alReactivar(anterior);
+        }
+        // Durante la pausa o el bloqueo la información pudo quedar incompleta; una ACTIVA no puede estarlo.
+        Map<String, String> faltantes = publicacion.informacionFaltante();
+        if (!faltantes.isEmpty()) {
+            auditoriaService.registrarFallo(administrador.correo(), AccionAuditoria.REACTIVAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_INFORMACION_INCOMPLETA);
+            throw new InformacionMinimaIncompletaException(MENSAJE_INFORMACION_INCOMPLETA, faltantes);
+        }
+
+        publicacion.reactivar();
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        Usuario admin = usuarioRepository.getReferenceById(administrador.idUsuario());
+        auditoriaService.registrarExito(admin, AccionAuditoria.REACTIVAR_PUBLICACION, ENTIDAD_PUBLICACION,
+                String.valueOf(guardada.getIdPublicacion()),
+                anterior + " -> " + guardada.getEstado() + ": " + request.motivo().strip());
         return publicacionMapper.toResponse(guardada);
     }
 

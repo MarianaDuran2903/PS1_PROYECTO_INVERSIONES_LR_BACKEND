@@ -21,4 +21,11 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
      */
     @EntityGraph(attributePaths = {"ciudad", "tipo", "politica"})
     Page<Publicacion> findByEstado(EstadoPublicacion estado, Pageable pageable);
+
+    /**
+     * Todas las publicaciones, de cualquier estado y Anfitrión, con ciudad, tipo y política cargados en la
+     * misma consulta.
+     */
+    @EntityGraph(attributePaths = {"ciudad", "tipo", "politica"})
+    Page<Publicacion> findAllBy(Pageable pageable);
 }
