@@ -6,6 +6,8 @@ import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 import com.inversioneslr.backend.exception.EstadoNoEditableException;
+import com.inversioneslr.backend.exception.InformacionMinimaIncompletaException;
+import com.inversioneslr.backend.exception.TransicionNoPermitidaException;
 import com.inversioneslr.backend.exception.PublicacionAjenaException;
 import com.inversioneslr.backend.exception.PublicacionNoEncontradaException;
 import com.inversioneslr.backend.exception.ReferenciaInvalidaException;
@@ -17,6 +19,7 @@ import com.inversioneslr.backend.model.Publicacion;
 import com.inversioneslr.backend.model.TipoAlojamiento;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
+import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.repository.CiudadRepository;
 import com.inversioneslr.backend.repository.PoliticaCancelacionRepository;
 import com.inversioneslr.backend.repository.PublicacionRepository;
@@ -33,6 +36,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 @Service
@@ -43,6 +48,8 @@ public class PublicacionServiceImpl implements PublicacionService {
     static final String POLITICA_POR_DEFECTO = "Flexible";
     static final String MOTIVO_NO_ES_PROPIETARIO = "NO_ES_PROPIETARIO";
     static final String MOTIVO_ESTADO_NO_EDITABLE = "ESTADO_NO_EDITABLE";
+    static final String MOTIVO_ESTADO_NO_PERMITIDO = "ESTADO_NO_PERMITIDO";
+    static final String MOTIVO_INFORMACION_INCOMPLETA = "INFORMACION_INCOMPLETA";
     static final String MENSAJE_SIN_PUBLICACIONES = "No tiene publicaciones registradas";
     /** La tabla no guarda la fecha de creación; el identificador crece con cada publicación nueva. */
     private static final Sort ORDEN_MAS_RECIENTES = Sort.by(Sort.Direction.DESC, "idPublicacion");
@@ -134,6 +141,50 @@ public class PublicacionServiceImpl implements PublicacionService {
         Publicacion guardada = publicacionRepository.save(publicacion);
         auditoriaService.registrarExito(guardada.getAnfitrion(), AccionAuditoria.EDITAR_PUBLICACION,
                 ENTIDAD_PUBLICACION, String.valueOf(guardada.getIdPublicacion()));
+        return publicacionMapper.toResponse(guardada);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponse solicitarActivacion(Long idPublicacion, UsuarioAutenticado autenticado) {
+        Publicacion publicacion = buscarPropia(idPublicacion, autenticado);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.puedePasarA(EstadoPublicacion.PENDIENTE_REVISION)) {
+            auditoriaService.registrarFallo(autenticado.correo(), AccionAuditoria.ENVIAR_A_REVISION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alEnviarARevision(anterior);
+        }
+        Map<String, String> faltantes = publicacion.informacionFaltante();
+        if (!faltantes.isEmpty()) {
+            auditoriaService.registrarFallo(autenticado.correo(), AccionAuditoria.ENVIAR_A_REVISION,
+                    ENTIDAD_PUBLICACION, MOTIVO_INFORMACION_INCOMPLETA);
+            throw new InformacionMinimaIncompletaException(faltantes);
+        }
+
+        publicacion.solicitarRevision();
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        auditoriaService.registrarExito(guardada.getAnfitrion(), AccionAuditoria.ENVIAR_A_REVISION,
+                ENTIDAD_PUBLICACION, String.valueOf(guardada.getIdPublicacion()),
+                anterior + " -> " + guardada.getEstado());
+        return publicacionMapper.toResponse(guardada);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponse pausar(Long idPublicacion, UsuarioAutenticado autenticado) {
+        Publicacion publicacion = buscarPropia(idPublicacion, autenticado);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.puedePasarA(EstadoPublicacion.PAUSADA)) {
+            auditoriaService.registrarFallo(autenticado.correo(), AccionAuditoria.PAUSAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alPausar(anterior);
+        }
+
+        publicacion.pausar();
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        auditoriaService.registrarExito(guardada.getAnfitrion(), AccionAuditoria.PAUSAR_PUBLICACION,
+                ENTIDAD_PUBLICACION, String.valueOf(guardada.getIdPublicacion()),
+                anterior + " -> " + guardada.getEstado());
         return publicacionMapper.toResponse(guardada);
     }
 

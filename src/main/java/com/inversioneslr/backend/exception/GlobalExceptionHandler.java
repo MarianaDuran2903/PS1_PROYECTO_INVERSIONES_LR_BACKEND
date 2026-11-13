@@ -117,6 +117,18 @@ public class GlobalExceptionHandler {
                 Map.of(ex.getCampo(), ex.getMessage()));
     }
 
+    @ExceptionHandler(InformacionMinimaIncompletaException.class)
+    public ResponseEntity<ErrorResponse> manejarInformacionMinimaIncompleta(InformacionMinimaIncompletaException ex,
+                                                                            HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ex.getPendientes());
+    }
+
+    @ExceptionHandler(TransicionNoPermitidaException.class)
+    public ResponseEntity<ErrorResponse> manejarTransicionNoPermitida(TransicionNoPermitidaException ex,
+                                                                      HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(PublicacionNoEncontradaException.class)
     public ResponseEntity<ErrorResponse> manejarPublicacionNoEncontrada(PublicacionNoEncontradaException ex,
                                                                         HttpServletRequest request) {

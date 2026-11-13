@@ -14,6 +14,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Alojamiento publicado por un Anfitrión (tabla publicacion). Nace en BORRADOR y queda asociado para siempre
@@ -72,6 +74,9 @@ public class Publicacion {
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoPublicacion estado = EstadoPublicacion.BORRADOR;
 
+    @Column(name = "motivo_bloqueo", columnDefinition = "text")
+    private String motivoBloqueo;
+
     protected Publicacion() {
         // Requerido por JPA
     }
@@ -108,6 +113,106 @@ public class Publicacion {
         asignarDatos(datos, ciudad, tipo);
         this.tarifaLimpieza = tarifaLimpieza;
         this.reglas = reglas == null || reglas.isBlank() ? null : reglas.strip();
+    }
+
+    /**
+     * Campos que faltan para pedir la revisión, con el mensaje de cada uno. Vacío si la información mínima
+     * está completa.
+     */
+    public Map<String, String> informacionFaltante() {
+        Map<String, String> faltantes = new LinkedHashMap<>();
+        if (estaEnBlanco(descripcion)) {
+            faltantes.put("descripcion", "La descripción es obligatoria para solicitar la activación");
+        }
+        if (estaEnBlanco(direccionTextual)) {
+            faltantes.put("direccionTextual", "La dirección es obligatoria para solicitar la activación");
+        }
+        if (estaEnBlanco(barrioZona)) {
+            faltantes.put("barrioZona", "El barrio o zona es obligatorio para solicitar la activación");
+        }
+        if (estaEnBlanco(reglas)) {
+            faltantes.put("reglas", "Las reglas son obligatorias para solicitar la activación");
+        }
+        return faltantes;
+    }
+
+    /**
+     * Pasa a PENDIENTE_REVISION. El servicio verifica antes la transición y la información mínima.
+     */
+    public void solicitarRevision() {
+        pasarA(EstadoPublicacion.PENDIENTE_REVISION);
+    }
+
+    public boolean estaPendienteDeRevision() {
+        return estado == EstadoPublicacion.PENDIENTE_REVISION;
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación pendiente: queda ACTIVA. El servicio verifica antes la
+     * información mínima.
+     */
+    public void aprobar() {
+        exigirPendienteDeRevision();
+        pasarA(EstadoPublicacion.ACTIVA);
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación pendiente: vuelve a BORRADOR para que el Anfitrión la
+     * corrija y la reenvíe.
+     */
+    public void rechazar() {
+        exigirPendienteDeRevision();
+        pasarA(EstadoPublicacion.BORRADOR);
+    }
+
+    /**
+     * El Anfitrión retira temporalmente una publicación ACTIVA de las búsquedas; la información se conserva.
+     * El servicio verifica antes la transición.
+     */
+    public void pausar() {
+        pasarA(EstadoPublicacion.PAUSADA);
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación engañosa o incumplidora: queda BLOQUEADA, con el
+     * motivo, y deja de ofrecerse en las búsquedas. El servicio verifica antes la transición.
+     */
+    public void bloquear(String motivo) {
+        if (estaEnBlanco(motivo)) {
+            throw new IllegalArgumentException("El motivo del bloqueo es obligatorio");
+        }
+        pasarA(EstadoPublicacion.BLOQUEADA);
+        this.motivoBloqueo = motivo.strip();
+    }
+
+    /**
+     * Decisión del Administrador sobre una publicación PAUSADA o BLOQUEADA: vuelve a ACTIVA y, si estaba
+     * bloqueada, el motivo del bloqueo se limpia (el historial queda en la auditoría). El servicio verifica
+     * antes la información mínima.
+     */
+    public void reactivar() {
+        if (!estado.permiteReactivacion()) {
+            throw new IllegalStateException("La publicación no está pausada ni bloqueada: " + estado);
+        }
+        pasarA(EstadoPublicacion.ACTIVA);
+        this.motivoBloqueo = null;
+    }
+
+    private void exigirPendienteDeRevision() {
+        if (!estaPendienteDeRevision()) {
+            throw new IllegalStateException("La publicación no está pendiente de revisión: " + estado);
+        }
+    }
+
+    private void pasarA(EstadoPublicacion destino) {
+        if (!estado.puedePasarA(destino)) {
+            throw new IllegalStateException("No se puede pasar de " + estado + " a " + destino);
+        }
+        this.estado = destino;
+    }
+
+    private static boolean estaEnBlanco(String valor) {
+        return valor == null || valor.isBlank();
     }
 
     public boolean perteneceA(Long idUsuario) {
@@ -168,5 +273,12 @@ public class Publicacion {
 
     public EstadoPublicacion getEstado() {
         return estado;
+    }
+
+    /**
+     * Motivo del bloqueo vigente; nulo si la publicación no está BLOQUEADA.
+     */
+    public String getMotivoBloqueo() {
+        return motivoBloqueo;
     }
 }

@@ -47,4 +47,25 @@ public interface PublicacionService {
      */
     PublicacionResponse actualizar(Long idPublicacion, ActualizarPublicacionRequest request,
                                    UsuarioAutenticado anfitrion);
+
+    /**
+     * Pasa una publicación propia de BORRADOR a PENDIENTE_REVISION si tiene la información mínima. Si algo
+     * falla, la publicación conserva su estado.
+     *
+     * @throws com.inversioneslr.backend.exception.PublicacionNoEncontradaException si no existe
+     * @throws com.inversioneslr.backend.exception.PublicacionAjenaException si pertenece a otro Anfitrión
+     * @throws com.inversioneslr.backend.exception.TransicionNoPermitidaException si no está en BORRADOR
+     * @throws com.inversioneslr.backend.exception.InformacionMinimaIncompletaException si falta información
+     */
+    PublicacionResponse solicitarActivacion(Long idPublicacion, UsuarioAutenticado anfitrion);
+
+    /**
+     * Pasa una publicación propia de ACTIVA a PAUSADA: deja de ofrecerse en las búsquedas y conserva toda su
+     * información. Si algo falla, la publicación conserva su estado.
+     *
+     * @throws com.inversioneslr.backend.exception.PublicacionNoEncontradaException si no existe
+     * @throws com.inversioneslr.backend.exception.PublicacionAjenaException si pertenece a otro Anfitrión
+     * @throws com.inversioneslr.backend.exception.TransicionNoPermitidaException si no está ACTIVA
+     */
+    PublicacionResponse pausar(Long idPublicacion, UsuarioAutenticado anfitrion);
 }

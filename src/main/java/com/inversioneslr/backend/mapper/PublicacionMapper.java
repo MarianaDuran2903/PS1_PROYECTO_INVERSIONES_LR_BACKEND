@@ -27,7 +27,8 @@ public class PublicacionMapper {
                 publicacion.getCapacidad(),
                 publicacion.getPrecioNoche(),
                 publicacion.getTarifaLimpieza(),
-                publicacion.getReglas());
+                publicacion.getReglas(),
+                publicacion.getMotivoBloqueo());
     }
 
     public PublicacionResumenResponse toResumen(Publicacion publicacion) {
