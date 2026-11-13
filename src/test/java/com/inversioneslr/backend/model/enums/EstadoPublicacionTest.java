@@ -37,6 +37,14 @@ class EstadoPublicacionTest {
     }
 
     @Test
+    @DisplayName("Solo ACTIVA puede pausarse")
+    void puedePasarA_soloActivaVaAPausada() {
+        for (EstadoPublicacion origen : EstadoPublicacion.values()) {
+            assertThat(origen.puedePasarA(PAUSADA)).isEqualTo(origen == ACTIVA);
+        }
+    }
+
+    @Test
     @DisplayName("Solo BORRADOR puede enviarse a revisión")
     void puedePasarA_soloBorradorVaARevision() {
         for (EstadoPublicacion origen : EstadoPublicacion.values()) {

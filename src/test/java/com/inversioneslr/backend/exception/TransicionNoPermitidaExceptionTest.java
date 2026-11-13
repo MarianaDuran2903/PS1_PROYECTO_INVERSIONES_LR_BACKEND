@@ -31,4 +31,16 @@ class TransicionNoPermitidaExceptionTest {
     void alRevisar_explicaElMotivoSegunElEstado(EstadoPublicacion estado, String mensaje) {
         assertThat(TransicionNoPermitidaException.alRevisar(estado)).hasMessage(mensaje);
     }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "BORRADOR|La publicación está en borrador: aún no se ha publicado, no hay nada que pausar",
+            "PENDIENTE_REVISION|La publicación está en revisión: solo se puede pausar una publicación activa",
+            "PAUSADA|La publicación ya está pausada",
+            "BLOQUEADA|La publicación está bloqueada y no se puede pausar",
+            "ACTIVA|La publicación no se puede pausar en su estado actual"
+    })
+    void alPausar_explicaElMotivoSegunElEstado(EstadoPublicacion estado, String mensaje) {
+        assertThat(TransicionNoPermitidaException.alPausar(estado)).hasMessage(mensaje);
+    }
 }

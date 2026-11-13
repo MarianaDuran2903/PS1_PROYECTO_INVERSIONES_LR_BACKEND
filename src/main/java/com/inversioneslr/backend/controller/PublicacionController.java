@@ -164,4 +164,28 @@ public class PublicacionController {
             @AuthenticationPrincipal UsuarioAutenticado anfitrion) {
         return ResponseEntity.ok(publicacionService.solicitarActivacion(idPublicacion, anfitrion));
     }
+
+    @PostMapping("/{idPublicacion}/pausar")
+    @PreAuthorize("hasRole('ANFITRION')")
+    @Operation(summary = "Pausar una publicación activa propia",
+            description = "Pasa una publicación ACTIVA a PAUSADA: deja de ofrecerse en las búsquedas para nuevas "
+                    + "reservas y conserva toda su información. El evento queda registrado. "
+                    + "Solo rol ANFITRION y solo el propietario.")
+    @ApiResponse(responseCode = "200", description = "Publicación en PAUSADA",
+            content = @Content(schema = @Schema(implementation = PublicacionResponse.class)))
+    @ApiResponse(responseCode = "400", description = "El identificador no es un número",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin token o token inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403",
+            description = "El usuario no tiene rol Anfitrión o la publicación pertenece a otro Anfitrión",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "La publicación no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "La publicación no está ACTIVA",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<PublicacionResponse> pausar(@PathVariable Long idPublicacion,
+                                                      @AuthenticationPrincipal UsuarioAutenticado anfitrion) {
+        return ResponseEntity.ok(publicacionService.pausar(idPublicacion, anfitrion));
+    }
 }

@@ -162,6 +162,14 @@ public class Publicacion {
         pasarA(EstadoPublicacion.BORRADOR);
     }
 
+    /**
+     * El Anfitrión retira temporalmente una publicación ACTIVA de las búsquedas; la información se conserva.
+     * El servicio verifica antes la transición.
+     */
+    public void pausar() {
+        pasarA(EstadoPublicacion.PAUSADA);
+    }
+
     private void exigirPendienteDeRevision() {
         if (!estaPendienteDeRevision()) {
             throw new IllegalStateException("La publicación no está pendiente de revisión: " + estado);
