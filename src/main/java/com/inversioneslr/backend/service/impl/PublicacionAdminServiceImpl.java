@@ -1,7 +1,9 @@
 package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.dto.request.ActualizarPublicacionRequest;
+import com.inversioneslr.backend.dto.request.BloqueoPublicacionRequest;
 import com.inversioneslr.backend.dto.request.EdicionAdministrativaRequest;
+import com.inversioneslr.backend.dto.request.ReactivacionPublicacionRequest;
 import com.inversioneslr.backend.dto.request.RechazoPublicacionRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
@@ -163,6 +165,55 @@ public class PublicacionAdminServiceImpl implements PublicacionAdminService {
         Usuario admin = usuarioRepository.getReferenceById(administrador.idUsuario());
         auditoriaService.registrarExito(admin, AccionAuditoria.RECHAZAR_PUBLICACION, ENTIDAD_PUBLICACION,
                 String.valueOf(guardada.getIdPublicacion()), request.motivo().strip());
+        return publicacionMapper.toResponse(guardada);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponse bloquear(Long idPublicacion, BloqueoPublicacionRequest request,
+                                        UsuarioAutenticado administrador) {
+        Publicacion publicacion = buscar(idPublicacion);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.puedePasarA(EstadoPublicacion.BLOQUEADA)) {
+            auditoriaService.registrarFallo(administrador.correo(), AccionAuditoria.BLOQUEAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alBloquear(anterior);
+        }
+
+        publicacion.bloquear(request.motivo());
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        // Quién (el Administrador del token), cuándo (fecha del evento) y por qué (el motivo).
+        Usuario admin = usuarioRepository.getReferenceById(administrador.idUsuario());
+        auditoriaService.registrarExito(admin, AccionAuditoria.BLOQUEAR_PUBLICACION, ENTIDAD_PUBLICACION,
+                String.valueOf(guardada.getIdPublicacion()), request.motivo().strip());
+        return publicacionMapper.toResponse(guardada);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponse reactivar(Long idPublicacion, ReactivacionPublicacionRequest request,
+                                         UsuarioAutenticado administrador) {
+        Publicacion publicacion = buscar(idPublicacion);
+        EstadoPublicacion anterior = publicacion.getEstado();
+        if (!anterior.permiteReactivacion()) {
+            auditoriaService.registrarFallo(administrador.correo(), AccionAuditoria.REACTIVAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_ESTADO_NO_PERMITIDO);
+            throw TransicionNoPermitidaException.alReactivar(anterior);
+        }
+        // Durante la pausa o el bloqueo la información pudo quedar incompleta; una ACTIVA no puede estarlo.
+        Map<String, String> faltantes = publicacion.informacionFaltante();
+        if (!faltantes.isEmpty()) {
+            auditoriaService.registrarFallo(administrador.correo(), AccionAuditoria.REACTIVAR_PUBLICACION,
+                    ENTIDAD_PUBLICACION, MOTIVO_INFORMACION_INCOMPLETA);
+            throw new InformacionMinimaIncompletaException(MENSAJE_INFORMACION_INCOMPLETA, faltantes);
+        }
+
+        publicacion.reactivar();
+        Publicacion guardada = publicacionRepository.save(publicacion);
+        Usuario admin = usuarioRepository.getReferenceById(administrador.idUsuario());
+        auditoriaService.registrarExito(admin, AccionAuditoria.REACTIVAR_PUBLICACION, ENTIDAD_PUBLICACION,
+                String.valueOf(guardada.getIdPublicacion()),
+                anterior + " -> " + guardada.getEstado() + ": " + request.motivo().strip());
         return publicacionMapper.toResponse(guardada);
     }
 

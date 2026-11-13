@@ -43,4 +43,28 @@ class TransicionNoPermitidaExceptionTest {
     void alPausar_explicaElMotivoSegunElEstado(EstadoPublicacion estado, String mensaje) {
         assertThat(TransicionNoPermitidaException.alPausar(estado)).hasMessage(mensaje);
     }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "BORRADOR|La publicación está en borrador: aún no se ha publicado, no hay nada que bloquear",
+            "BLOQUEADA|La publicación ya está bloqueada",
+            "PENDIENTE_REVISION|La publicación no se puede bloquear en su estado actual",
+            "ACTIVA|La publicación no se puede bloquear en su estado actual",
+            "PAUSADA|La publicación no se puede bloquear en su estado actual"
+    })
+    void alBloquear_explicaElMotivoSegunElEstado(EstadoPublicacion estado, String mensaje) {
+        assertThat(TransicionNoPermitidaException.alBloquear(estado)).hasMessage(mensaje);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "ACTIVA|La publicación ya está activa",
+            "BORRADOR|La publicación está en borrador: el Anfitrión debe enviarla a revisión",
+            "PENDIENTE_REVISION|La publicación está en revisión: se aprueba, no se reactiva",
+            "PAUSADA|La publicación no se puede reactivar en su estado actual",
+            "BLOQUEADA|La publicación no se puede reactivar en su estado actual"
+    })
+    void alReactivar_explicaElMotivoSegunElEstado(EstadoPublicacion estado, String mensaje) {
+        assertThat(TransicionNoPermitidaException.alReactivar(estado)).hasMessage(mensaje);
+    }
 }

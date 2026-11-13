@@ -1,7 +1,9 @@
 package com.inversioneslr.backend.controller;
 
 import com.inversioneslr.backend.config.OpenApiConfig;
+import com.inversioneslr.backend.dto.request.BloqueoPublicacionRequest;
 import com.inversioneslr.backend.dto.request.EdicionAdministrativaRequest;
+import com.inversioneslr.backend.dto.request.ReactivacionPublicacionRequest;
 import com.inversioneslr.backend.dto.request.RechazoPublicacionRequest;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
@@ -121,6 +123,61 @@ public class PublicacionAdminController {
                                                         @Valid @RequestBody RechazoPublicacionRequest request,
                                                         @AuthenticationPrincipal UsuarioAutenticado administrador) {
         return ResponseEntity.ok(publicacionAdminService.rechazar(idPublicacion, request, administrador));
+    }
+
+    @PostMapping("/{idPublicacion}/bloquear")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Bloquear una publicación engañosa",
+            description = "Pasa una publicación en revisión, activa o pausada a BLOQUEADA y deja de ofrecerse en "
+                    + "las búsquedas. El motivo es obligatorio: se guarda en la publicación, que lo devuelve en "
+                    + "motivoBloqueo, y queda registrado junto con el Administrador y la fecha. Un borrador no se "
+                    + "bloquea y una publicación ya bloqueada tampoco. Solo rol ADMINISTRADOR.")
+    @ApiResponse(responseCode = "200", description = "Publicación BLOQUEADA",
+            content = @Content(schema = @Schema(implementation = PublicacionResponse.class)))
+    @ApiResponse(responseCode = "400",
+            description = "Motivo ausente o fuera de 10 a 500 caracteres, o el identificador no es un número; "
+                    + "la publicación no cambia",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin token o token inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "El usuario no tiene rol Administrador",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "La publicación no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "La publicación es un borrador o ya está BLOQUEADA",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<PublicacionResponse> bloquear(@PathVariable Long idPublicacion,
+                                                        @Valid @RequestBody BloqueoPublicacionRequest request,
+                                                        @AuthenticationPrincipal UsuarioAutenticado administrador) {
+        return ResponseEntity.ok(publicacionAdminService.bloquear(idPublicacion, request, administrador));
+    }
+
+    @PostMapping("/{idPublicacion}/reactivar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Reactivar una publicación pausada o bloqueada",
+            description = "Devuelve a ACTIVA una publicación PAUSADA, tras revisar el ajuste del Anfitrión, o "
+                    + "BLOQUEADA, según el motivo del bloqueo, y vuelve a ofrecerse en las búsquedas. El motivo "
+                    + "de la reactivación es obligatorio y queda registrado junto con el estado de origen, el "
+                    + "Administrador y la fecha; el motivo del bloqueo se limpia. Si le falta información mínima, "
+                    + "informa todos los pendientes y la publicación conserva su estado. Solo rol ADMINISTRADOR.")
+    @ApiResponse(responseCode = "200", description = "Publicación ACTIVA",
+            content = @Content(schema = @Schema(implementation = PublicacionResponse.class)))
+    @ApiResponse(responseCode = "400",
+            description = "Falta información mínima: el detalle trae cada campo pendiente; o motivo ausente o "
+                    + "fuera de 10 a 500 caracteres, o el identificador no es un número",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin token o token inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "El usuario no tiene rol Administrador",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "La publicación no existe",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "La publicación no está PAUSADA ni BLOQUEADA",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<PublicacionResponse> reactivar(@PathVariable Long idPublicacion,
+                                                         @Valid @RequestBody ReactivacionPublicacionRequest request,
+                                                         @AuthenticationPrincipal UsuarioAutenticado administrador) {
+        return ResponseEntity.ok(publicacionAdminService.reactivar(idPublicacion, request, administrador));
     }
 
     @GetMapping("/{idPublicacion}")

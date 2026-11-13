@@ -1,6 +1,8 @@
 package com.inversioneslr.backend.service;
 
+import com.inversioneslr.backend.dto.request.BloqueoPublicacionRequest;
 import com.inversioneslr.backend.dto.request.EdicionAdministrativaRequest;
+import com.inversioneslr.backend.dto.request.ReactivacionPublicacionRequest;
 import com.inversioneslr.backend.dto.request.RechazoPublicacionRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
@@ -59,4 +61,28 @@ public interface PublicacionAdminService {
      */
     PublicacionResponse rechazar(Long idPublicacion, RechazoPublicacionRequest request,
                                  UsuarioAutenticado administrador);
+
+    /**
+     * Bloquea una publicación engañosa o incumplidora: pasa a BLOQUEADA, deja de ofrecerse en las búsquedas, el
+     * motivo se guarda en la publicación y queda registrado con el Administrador y la fecha.
+     *
+     * @throws com.inversioneslr.backend.exception.PublicacionNoEncontradaException si no existe
+     * @throws com.inversioneslr.backend.exception.TransicionNoPermitidaException si es un borrador o ya está
+     *         bloqueada
+     */
+    PublicacionResponse bloquear(Long idPublicacion, BloqueoPublicacionRequest request,
+                                 UsuarioAutenticado administrador);
+
+    /**
+     * Reactiva una publicación pausada (tras revisar el ajuste del Anfitrión) o bloqueada (según el motivo del
+     * bloqueo): vuelve a ACTIVA, el motivo del bloqueo se limpia y la decisión queda registrada con el
+     * Administrador, el estado de origen y el motivo.
+     *
+     * @throws com.inversioneslr.backend.exception.PublicacionNoEncontradaException si no existe
+     * @throws com.inversioneslr.backend.exception.TransicionNoPermitidaException si no está PAUSADA ni BLOQUEADA
+     * @throws com.inversioneslr.backend.exception.InformacionMinimaIncompletaException si le falta información
+     *         mínima para estar activa
+     */
+    PublicacionResponse reactivar(Long idPublicacion, ReactivacionPublicacionRequest request,
+                                  UsuarioAutenticado administrador);
 }
