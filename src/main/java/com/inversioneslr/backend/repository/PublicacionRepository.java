@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 public interface PublicacionRepository extends JpaRepository<Publicacion, Long> {
 
@@ -44,6 +45,22 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
                    OR p.id_ciudad = CAST(:idCiudad AS bigint))
               AND (CAST(:huespedes AS integer) IS NULL
                    OR p.capacidad >= CAST(:huespedes AS integer))
+              AND (CAST(:idTipo AS bigint) IS NULL
+                   OR p.id_tipo = CAST(:idTipo AS bigint))
+              AND (CAST(:precioMinimo AS numeric) IS NULL
+                   OR p.precio_noche >= CAST(:precioMinimo AS numeric))
+              AND (CAST(:precioMaximo AS numeric) IS NULL
+                   OR p.precio_noche <= CAST(:precioMaximo AS numeric))
+              AND NOT EXISTS (
+                 SELECT 1
+                    FROM unnest(string_to_array(CAST(:idsServicios AS text), ',')) AS requerido(id_servicio)
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                           FROM publicacion_servicio ps
+                           WHERE ps.id_publicacion = p.id_publicacion
+                              AND ps.id_servicio = CAST(requerido.id_servicio AS bigint)
+                              )
+                            )
               AND (
                 CAST(:fechaLlegada AS date) IS NULL
                 OR (
@@ -83,5 +100,9 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
             @Param("fechaLlegada") LocalDate fechaLlegada,
             @Param("fechaSalida") LocalDate fechaSalida,
             @Param("huespedes") Integer huespedes,
+            @Param("idTipo") Long idTipo,
+            @Param("precioMinimo") BigDecimal precioMinimo,
+            @Param("precioMaximo") BigDecimal precioMaximo,
+            @Param("idsServicios") String idsServicios,
             Pageable pageable);
 }

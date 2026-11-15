@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.isNull;
 
 @ExtendWith(MockitoExtension.class)
 class AlojamientoServiceImplTest {
@@ -122,10 +123,14 @@ class AlojamientoServiceImplTest {
         LocalDate llegada = LocalDate.of(2030, 6, 10);
         LocalDate salida = LocalDate.of(2030, 6, 13);
         FiltroAlojamientosRequest filtros =
-                new FiltroAlojamientosRequest(3L, llegada, salida, 2);
+                new FiltroAlojamientosRequest(
+                        3L, llegada, salida, 2,
+                        null, null, null, null);
 
         when(publicacionRepository.buscarDisponibles(
-                eq(3L), eq(llegada), eq(salida), eq(2), any(Pageable.class)))
+                eq(3L), eq(llegada), eq(salida), eq(2),
+                isNull(), isNull(), isNull(), isNull(),
+                any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         PaginaResponse<PublicacionResumenResponse> respuesta =
@@ -133,13 +138,54 @@ class AlojamientoServiceImplTest {
 
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
         verify(publicacionRepository).buscarDisponibles(
-                eq(3L), eq(llegada), eq(salida), eq(2), pagina.capture());
+                eq(3L), eq(llegada), eq(salida), eq(2),
+                isNull(), isNull(), isNull(), isNull(),
+                pagina.capture());
 
         assertThat(pagina.getValue().getPageNumber()).isEqualTo(1);
         assertThat(pagina.getValue().getPageSize()).isEqualTo(12);
         assertThat(pagina.getValue().getSort().isUnsorted()).isTrue();
         assertThat(respuesta.mensaje()).isEqualTo(
                 "No hay alojamientos que coincidan con los filtros seleccionados");
+    }
+
+    @Test
+    void listarDisponibles_caracteristicas_enviaFiltrosYEliminaServiciosRepetidos() {
+        BigDecimal minimo = new BigDecimal("100000.00");
+        BigDecimal maximo = new BigDecimal("300000.00");
+
+        FiltroAlojamientosRequest filtros = new FiltroAlojamientosRequest(
+                null, null, null, 4,
+                1L, minimo, maximo, List.of(2L, 3L, 2L));
+
+        when(publicacionRepository.buscarDisponibles(
+                isNull(), isNull(), isNull(), eq(4),
+                eq(1L), eq(minimo), eq(maximo), eq("2,3"),
+                any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        servicio.listarDisponibles(0, 12, filtros);
+
+        verify(publicacionRepository).buscarDisponibles(
+                isNull(), isNull(), isNull(), eq(4),
+                eq(1L), eq(minimo), eq(maximo), eq("2,3"),
+                eq(PageRequest.of(0, 12)));
+    }
+
+    @Test
+    void listarDisponibles_serviciosVacios_conservaListadoGeneral() {
+        when(publicacionRepository.findByEstado(
+                eq(EstadoPublicacion.ACTIVA), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        FiltroAlojamientosRequest filtros = new FiltroAlojamientosRequest(
+                null, null, null, null,
+                null, null, null, List.of());
+
+        servicio.listarDisponibles(0, 12, filtros);
+
+        verify(publicacionRepository).findByEstado(
+                eq(EstadoPublicacion.ACTIVA), any(Pageable.class));
     }
 
     private Publicacion publicacion(long id, String titulo) {

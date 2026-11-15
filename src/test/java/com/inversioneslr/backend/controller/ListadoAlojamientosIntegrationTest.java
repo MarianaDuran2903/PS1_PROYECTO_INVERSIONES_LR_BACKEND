@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
@@ -490,6 +491,249 @@ class ListadoAlojamientosIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void hu024_tipo_soloDevuelveActivasDelTipoSeleccionado() throws Exception {
+        long apartamento = insertarPublicacion("Apartamento activo", "ACTIVA");
+        long casa = insertarPublicacion("Casa activa", "ACTIVA");
+        insertarPublicacion("Apartamento pausado", "PAUSADA");
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET id_tipo = ? WHERE id_publicacion = ?",
+                tipo("Casa"), casa);
+
+        mockMvc.perform(get(URL)
+                        .param("idTipo", String.valueOf(tipo("Apartamento"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(apartamento))
+                .andExpect(jsonPath("$.totalElementos").value(1));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "precioMinimo, 250000",
+            "precioMaximo, 250000"
+    })
+    void hu024_precio_limitesSonInclusivos(
+            String parametro, String valor) throws Exception {
+        long id = insertarPublicacion("En el límite", "ACTIVA");
+
+        mockMvc.perform(get(URL).param(parametro, valor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id));
+    }
+
+    @Test
+    void hu024_precio_filtraAntesDePaginarYConservaTotales() throws Exception {
+        long primera = insertarPublicacion("Primera válida", "ACTIVA");
+        insertarPublicacion("Segunda válida", "ACTIVA");
+        long fuera = insertarPublicacion("Fuera del precio", "ACTIVA");
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET precio_noche = 500000 WHERE id_publicacion = ?",
+                fuera);
+
+        mockMvc.perform(get(URL)
+                        .param("precioMinimo", "200000")
+                        .param("precioMaximo", "300000")
+                        .param("pagina", "1")
+                        .param("tamano", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(primera))
+                .andExpect(jsonPath("$.totalElementos").value(2))
+                .andExpect(jsonPath("$.totalPaginas").value(2));
+    }
+
+    @Test
+    void hu024_servicios_exigeTodosSinDuplicarPublicaciones() throws Exception {
+        long wifi = servicioCatalogo("Wi-Fi");
+        long cocina = servicioCatalogo("Cocina");
+
+        long completa = insertarPublicacion("Con ambos servicios", "ACTIVA");
+        long parcial = insertarPublicacion("Solo wifi", "ACTIVA");
+        insertarPublicacion("Sin servicios", "ACTIVA");
+        long pausada = insertarPublicacion("Pausada con ambos", "PAUSADA");
+
+        asociarServicio(completa, wifi);
+        asociarServicio(completa, cocina);
+        asociarServicio(parcial, wifi);
+        asociarServicio(pausada, wifi);
+        asociarServicio(pausada, cocina);
+
+        mockMvc.perform(get(URL)
+                        .param("idsServicios",
+                                String.valueOf(wifi), String.valueOf(cocina)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(completa))
+                .andExpect(jsonPath("$.totalElementos").value(1));
+    }
+
+    @Test
+    void hu024_servicioRepetido_noCambiaElResultado() throws Exception {
+        long wifi = servicioCatalogo("Wi-Fi");
+        long id = insertarPublicacion("Con wifi", "ACTIVA");
+        asociarServicio(id, wifi);
+
+        mockMvc.perform(get(URL)
+                        .param("idsServicios",
+                                String.valueOf(wifi), String.valueOf(wifi)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id))
+                .andExpect(jsonPath("$.totalElementos").value(1));
+    }
+
+    @Test
+    void hu024_combinaCaracteristicasConCiudadFechasYCapacidad() throws Exception {
+        long wifi = servicioCatalogo("Wi-Fi");
+        long valida = insertarPublicacion("Cumple todo", "ACTIVA");
+        long sinServicio = insertarPublicacion("Sin servicio", "ACTIVA");
+        long sinFechas = insertarPublicacion("Sin disponibilidad", "ACTIVA");
+        long cara = insertarPublicacion("Demasiado cara", "ACTIVA");
+        long otroTipo = insertarPublicacion("Otro tipo", "ACTIVA");
+
+        for (long id : new long[]{valida, sinServicio, cara, otroTipo}) {
+            periodo(id, "2030-06-10", "2030-06-13", "DISPONIBLE");
+        }
+
+        for (long id : new long[]{valida, sinFechas, cara, otroTipo}) {
+            asociarServicio(id, wifi);
+        }
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET precio_noche = 500000 WHERE id_publicacion = ?",
+                cara);
+        jdbcTemplate.update(
+                "UPDATE publicacion SET id_tipo = ? WHERE id_publicacion = ?",
+                tipo("Casa"), otroTipo);
+
+        mockMvc.perform(get(URL)
+                        .param("idCiudad", String.valueOf(ciudad("Cartagena")))
+                        .param("fechaLlegada", "2030-06-10")
+                        .param("fechaSalida", "2030-06-13")
+                        .param("huespedes", "4")
+                        .param("idTipo", String.valueOf(tipo("Apartamento")))
+                        .param("precioMinimo", "200000")
+                        .param("precioMaximo", "300000")
+                        .param("idsServicios", String.valueOf(wifi)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(valida))
+                .andExpect(jsonPath("$.totalElementos").value(1));
+    }
+
+    @Test
+    void hu024_sinCoincidencias_informaElResultadoVacio() throws Exception {
+        insertarPublicacion("Precio superior", "ACTIVA");
+
+        mockMvc.perform(get(URL).param("precioMaximo", "100000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(0)))
+                .andExpect(jsonPath("$.totalElementos").value(0))
+                .andExpect(jsonPath("$.mensaje").value(
+                        "No hay alojamientos que coincidan con los filtros seleccionados"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "?idTipo=0, idTipo",
+            "?idTipo=-1, idTipo",
+            "?idTipo=abc, idTipo",
+            "?precioMinimo=-1, precioMinimo",
+            "?precioMaximo=-1, precioMaximo",
+            "?precioMinimo=abc, precioMinimo",
+            "?precioMaximo=100.001, precioMaximo",
+            "?precioMinimo=300000&precioMaximo=100000, rangoPreciosValido"
+    })
+    void hu024_parametrosInvalidos_responde400PorCampo(
+            String consulta, String campo) throws Exception {
+        mockMvc.perform(get(URL + consulta))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errores." + campo, notNullValue()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "abc"})
+    void hu024_serviciosInvalidos_responde400(String valor) throws Exception {
+        mockMvc.perform(get(URL).param("idsServicios", valor))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void tiposBusqueda_sinToken_devuelveCatalogoOrdenado() throws Exception {
+        mockMvc.perform(get("/api/v1/catalogos/tipos-alojamiento"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].nombre",
+                        contains("Apartamento", "Cabaña", "Casa", "Habitación")))
+                .andExpect(jsonPath("$[0].id", notNullValue()));
+    }
+
+    @Test
+    void serviciosBusqueda_sinToken_devuelveCatalogoOrdenadoConIdentificadores()
+            throws Exception {
+
+        long wifi = servicioCatalogo("Wi-Fi");
+
+        List<String> nombresEsperados = jdbcTemplate.queryForList(
+                "SELECT nombre FROM servicio ORDER BY nombre",
+                String.class);
+
+        mockMvc.perform(get("/api/v1/catalogos/servicios"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(nombresEsperados.size())))
+                .andExpect(jsonPath("$[*].nombre",
+                        contains(nombresEsperados.toArray(new String[0]))))
+                .andExpect(jsonPath("$[?(@.nombre == 'Wi-Fi')].id",
+                        contains((int) wifi)));
+    }
+
+    @Test
+    void catalogoPrivadoDeTipos_sigueExigiendoSesion() throws Exception {
+        mockMvc.perform(get("/api/v1/tipos-alojamiento"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/catalogos/tipos-alojamiento",
+            "/api/v1/catalogos/servicios"
+    })
+    void escribirCatalogosPublicos_sinToken_sigueExigiendoSesion(String ruta)
+            throws Exception {
+        mockMvc.perform(post(ruta))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/catalogos/tipos-alojamiento",
+            "/api/v1/catalogos/servicios"
+    })
+    void contratoOpenApi_documentaNuevosCatalogosPublicos(String ruta)
+            throws Exception {
+
+        String operacion = "$.paths['" + ruta + "'].get";
+
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        operacion + ".responses['200']", notNullValue()))
+                .andExpect(jsonPath(operacion + ".security").isArray())
+                .andExpect(jsonPath(operacion + ".security").isEmpty());
+    }
+
+    @Test
+    void contratoOpenApi_conservaSeguridadDelCatalogoPrivado() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        "$.paths['/api/v1/tipos-alojamiento'].get.security",
+                        notNullValue()));
+    }
+
     /**
      * Prepara publicaciones en distintos estados para probar la consulta pública de forma aislada
      * de los flujos de creación y moderación. Se completan descripción, dirección y reglas porque
@@ -558,6 +802,29 @@ class ListadoAlojamientosIntegrationTest {
                 Date.valueOf(LocalDate.parse(inicio)),
                 Date.valueOf(LocalDate.parse(fin)),
                 estado, "prueba-hu023-" + idPublicacion);
+    }
+
+    private long tipo(String nombre) {
+        return jdbcTemplate.queryForObject(
+                "SELECT id_tipo FROM tipo_alojamiento WHERE nombre = ?",
+                Long.class, nombre);
+    }
+
+    private long servicioCatalogo(String nombre) {
+        return jdbcTemplate.queryForObject("""
+                INSERT INTO servicio (nombre)
+                VALUES (?)
+                ON CONFLICT (nombre)
+                DO UPDATE SET nombre = EXCLUDED.nombre
+                RETURNING id_servicio
+                """, Long.class, nombre);
+    }
+
+    private void asociarServicio(long idPublicacion, long idServicio) {
+        jdbcTemplate.update("""
+                INSERT INTO publicacion_servicio (id_publicacion, id_servicio)
+                VALUES (?, ?)
+                """, idPublicacion, idServicio);
     }
 
     @AfterEach

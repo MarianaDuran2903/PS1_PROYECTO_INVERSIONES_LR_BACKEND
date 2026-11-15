@@ -7,6 +7,7 @@ import com.inversioneslr.backend.model.Ciudad;
 import com.inversioneslr.backend.model.PoliticaCancelacion;
 import com.inversioneslr.backend.model.Publicacion;
 import com.inversioneslr.backend.model.TipoAlojamiento;
+import com.inversioneslr.backend.model.Servicio;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -52,5 +53,11 @@ public class PublicacionMapper {
 
     public CatalogoItemResponse toItem(PoliticaCancelacion politica) {
         return new CatalogoItemResponse(politica.getIdPolitica(), politica.getNombre());
+    }
+
+    public CatalogoItemResponse toItem(Servicio servicio) {
+        return new CatalogoItemResponse(
+                servicio.getIdServicio(),
+                servicio.getNombre());
     }
 }

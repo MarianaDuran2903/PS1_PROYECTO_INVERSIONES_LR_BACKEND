@@ -12,4 +12,6 @@ public interface CatalogoService {
     List<CatalogoItemResponse> listarCiudades();
 
     List<CatalogoItemResponse> listarTiposAlojamiento();
+
+    List<CatalogoItemResponse> listarServicios();
 }
