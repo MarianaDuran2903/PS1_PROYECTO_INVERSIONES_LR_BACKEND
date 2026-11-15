@@ -7,6 +7,7 @@ import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.Rol;
 import com.inversioneslr.backend.repository.UsuarioRepository;
 import com.inversioneslr.backend.service.TokenService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+
+import java.sql.Date;
+import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
@@ -271,6 +275,221 @@ class ListadoAlojamientosIntegrationTest {
                 .andExpect(jsonPath("$.mensaje").doesNotExist());
     }
 
+    @Test
+    void filtrar_ciudad_soloDevuelveActivasDeLaCiudad() throws Exception {
+        long cartagena = insertarPublicacion("Cartagena activa", "ACTIVA");
+        long bogota = insertarPublicacion("Bogotá activa", "ACTIVA");
+        insertarPublicacion("Cartagena pausada", "PAUSADA");
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET id_ciudad = ? WHERE id_publicacion = ?",
+                ciudad("Bogotá"), bogota);
+
+        mockMvc.perform(get(URL).param("idCiudad", String.valueOf(ciudad("Cartagena"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(cartagena));
+    }
+
+    @Test
+    void filtrar_huespedes_incluyeCapacidadIgualYMayor() throws Exception {
+        long pequena = insertarPublicacion("Para dos", "ACTIVA");
+        long exacta = insertarPublicacion("Para cuatro", "ACTIVA");
+        long grande = insertarPublicacion("Para seis", "ACTIVA");
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET capacidad = 2 WHERE id_publicacion = ?", pequena);
+        jdbcTemplate.update(
+                "UPDATE publicacion SET capacidad = 6 WHERE id_publicacion = ?", grande);
+
+        mockMvc.perform(get(URL).param("huespedes", "4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].idPublicacion",
+                        contains((int) grande, (int) exacta)))
+                .andExpect(jsonPath("$.totalElementos").value(2));
+    }
+
+    @Test
+    void filtrar_fechas_exigeDisponibilidadRegistrada() throws Exception {
+        insertarPublicacion("Sin calendario", "ACTIVA");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(0)))
+                .andExpect(jsonPath("$.mensaje").value(
+                        "No hay alojamientos que coincidan con los filtros seleccionados"));
+    }
+
+    @Test
+    void filtrar_fechas_aceptaCoberturaExacta() throws Exception {
+        long id = insertarPublicacion("Disponible", "ACTIVA");
+        periodo(id, "2030-06-10", "2030-06-13", "DISPONIBLE");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id));
+    }
+
+    @Test
+    void filtrar_fechas_aceptaPeriodoMasAmplio() throws Exception {
+        long id = insertarPublicacion("Disponible", "ACTIVA");
+        periodo(id, "2030-06-01", "2030-06-30", "DISPONIBLE");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id));
+    }
+
+    @Test
+    void filtrar_fechas_unePeriodosDisponiblesContiguos() throws Exception {
+        long id = insertarPublicacion("Periodos contiguos", "ACTIVA");
+        periodo(id, "2030-06-10", "2030-06-11", "DISPONIBLE");
+        periodo(id, "2030-06-11", "2030-06-13", "DISPONIBLE");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id));
+    }
+
+    @Test
+    void filtrar_fechas_noAceptaHuecosEntrePeriodos() throws Exception {
+        long id = insertarPublicacion("Con hueco", "ACTIVA");
+        periodo(id, "2030-06-10", "2030-06-11", "DISPONIBLE");
+        periodo(id, "2030-06-12", "2030-06-13", "DISPONIBLE");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(0));
+    }
+
+    @Test
+    void filtrar_fechas_noAceptaCoberturaParcial() throws Exception {
+        long id = insertarPublicacion("Cobertura parcial", "ACTIVA");
+        periodo(id, "2030-06-10", "2030-06-12", "DISPONIBLE");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(0));
+    }
+
+    @Test
+    void filtrar_fechas_excluyeUnaNocheBloqueada() throws Exception {
+        long id = insertarPublicacion("Con bloqueo", "ACTIVA");
+        periodo(id, "2030-06-10", "2030-06-11", "DISPONIBLE");
+        periodo(id, "2030-06-11", "2030-06-12", "BLOQUEADO");
+        periodo(id, "2030-06-12", "2030-06-13", "DISPONIBLE");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CONFIRMADA", "REVISION_MANUAL"})
+    void filtrar_fechas_excluyeReservaQueOcupaElRango(String estado) throws Exception {
+        long id = insertarPublicacion("Con reserva", "ACTIVA");
+        periodo(id, "2030-06-01", "2030-06-30", "DISPONIBLE");
+        reserva(id, "2030-06-11", "2030-06-12", estado);
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(0));
+    }
+
+    @Test
+    void filtrar_fechas_reservaCanceladaNoOcupaElRango() throws Exception {
+        long id = insertarPublicacion("Reserva cancelada", "ACTIVA");
+        periodo(id, "2030-06-01", "2030-06-30", "DISPONIBLE");
+        reserva(id, "2030-06-11", "2030-06-12", "CANCELADA");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "2030-06-08, 2030-06-10",
+            "2030-06-13, 2030-06-15"
+    })
+    void filtrar_fechas_reservasEnLosBordesNoSeCruzan(
+            String inicio, String fin) throws Exception {
+        long id = insertarPublicacion("Reserva contigua", "ACTIVA");
+        periodo(id, "2030-06-01", "2030-06-30", "DISPONIBLE");
+        reserva(id, inicio, fin, "CONFIRMADA");
+
+        buscarConFechas()
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id));
+    }
+
+    @Test
+    void filtrar_combinaCiudadFechasCapacidadYPaginacion() throws Exception {
+        long primera = insertarPublicacion("Primera válida", "ACTIVA");
+        long segunda = insertarPublicacion("Segunda válida", "ACTIVA");
+        long otraCiudad = insertarPublicacion("Otra ciudad", "ACTIVA");
+        long pocaCapacidad = insertarPublicacion("Poca capacidad", "ACTIVA");
+
+        for (long id : new long[]{primera, segunda, otraCiudad, pocaCapacidad}) {
+            periodo(id, "2030-06-01", "2030-06-30", "DISPONIBLE");
+        }
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET id_ciudad = ? WHERE id_publicacion = ?",
+                ciudad("Bogotá"), otraCiudad);
+        jdbcTemplate.update(
+                "UPDATE publicacion SET capacidad = 2 WHERE id_publicacion = ?",
+                pocaCapacidad);
+
+        mockMvc.perform(get(URL)
+                        .param("idCiudad", String.valueOf(ciudad("Cartagena")))
+                        .param("fechaLlegada", "2030-06-10")
+                        .param("fechaSalida", "2030-06-13")
+                        .param("huespedes", "4")
+                        .param("pagina", "1")
+                        .param("tamano", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(primera))
+                .andExpect(jsonPath("$.totalElementos").value(2))
+                .andExpect(jsonPath("$.totalPaginas").value(2));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "?idCiudad=0, idCiudad",
+            "?idCiudad=-1, idCiudad",
+            "?idCiudad=abc, idCiudad",
+            "?huespedes=0, huespedes",
+            "?huespedes=-1, huespedes",
+            "?huespedes=2.5, huespedes",
+            "?fechaLlegada=no-es-fecha, fechaLlegada",
+            "?fechaLlegada=2030-06-10, fechasCompletas",
+            "?fechaSalida=2030-06-13, fechasCompletas",
+            "?fechaLlegada=2030-06-10&fechaSalida=2030-06-10, rangoFechasValido",
+            "?fechaLlegada=2030-06-13&fechaSalida=2030-06-10, rangoFechasValido"
+    })
+    void filtrar_datosInvalidos_responde400PorCampo(
+            String consulta, String campo) throws Exception {
+        mockMvc.perform(get(URL + consulta))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errores." + campo, notNullValue()));
+    }
+
+    @Test
+    void ciudadesBusqueda_sinToken_devuelveElCatalogo() throws Exception {
+        mockMvc.perform(get(URL + "/ciudades"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].nombre",
+                        contains("Bogotá", "Cali", "Cartagena", "Medellín")));
+    }
+
+    @Test
+    void catalogoPrivadoDeCiudades_sigueExigiendoSesion() throws Exception {
+        mockMvc.perform(get("/api/v1/ciudades"))
+                .andExpect(status().isUnauthorized());
+    }
+
     /**
      * Prepara publicaciones en distintos estados para probar la consulta pública de forma aislada
      * de los flujos de creación y moderación. Se completan descripción, dirección y reglas porque
@@ -296,5 +515,54 @@ class ListadoAlojamientosIntegrationTest {
     private Usuario crearUsuario(String correo, Rol rol) {
         return usuarioRepository.save(new Usuario(new NombreCompleto("Nombre", null, "Apellido", null),
                 correo, "hash-no-usado", rol));
+    }
+
+    private long ciudad(String nombre) {
+        return jdbcTemplate.queryForObject(
+                "SELECT id_ciudad FROM ciudad WHERE nombre = ?",
+                Long.class, nombre);
+    }
+
+    private void periodo(long idPublicacion, String inicio, String fin, String tipo) {
+        jdbcTemplate.update("""
+                INSERT INTO periodo_disponibilidad
+                    (id_publicacion, fecha_inicio, fecha_fin, tipo)
+                VALUES (?, ?, ?, ?)
+                """,
+                idPublicacion,
+                Date.valueOf(LocalDate.parse(inicio)),
+                Date.valueOf(LocalDate.parse(fin)),
+                tipo);
+    }
+
+    private ResultActions buscarConFechas() throws Exception {
+        return mockMvc.perform(get(URL)
+                .param("fechaLlegada", "2030-06-10")
+                .param("fechaSalida", "2030-06-13"));
+    }
+
+    private void reserva(long idPublicacion, String inicio, String fin, String estado) {
+        Usuario huesped = crearUsuario("huesped-reserva@correo.com", Rol.HUESPED);
+
+        jdbcTemplate.update("""
+                INSERT INTO reserva (
+                    id_huesped, id_publicacion, fecha_llegada, fecha_salida,
+                    estado, clave_idempotencia, precio_base,
+                    porcentaje_descuento_aplicado, valor_descuento,
+                    tarifa_limpieza, porcentaje_tarifa_servicio, tarifa_servicio,
+                    total, horas_anticipacion_aplicada, porcentaje_devolucion_aplicado
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 100000, 0, 0, 0, 0, 0, 100000, 24, 100)
+                """,
+                huesped.getIdUsuario(), idPublicacion,
+                Date.valueOf(LocalDate.parse(inicio)),
+                Date.valueOf(LocalDate.parse(fin)),
+                estado, "prueba-hu023-" + idPublicacion);
+    }
+
+    @AfterEach
+    void limpiarDisponibilidadDePrueba() {
+        jdbcTemplate.update("DELETE FROM periodo_disponibilidad");
+        jdbcTemplate.update("DELETE FROM reserva");
     }
 }
