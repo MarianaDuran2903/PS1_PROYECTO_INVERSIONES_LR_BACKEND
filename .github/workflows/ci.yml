@@ -31,7 +31,7 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar
 
       - name: Compilar, ejecutar pruebas y generar cobertura (JaCoCo)
-        run: mvn -B verify
+        run: mvn -B -Dapi.version=1.44 verify
 
       - name: Verificar que existe el secret SONAR_TOKEN
         env:

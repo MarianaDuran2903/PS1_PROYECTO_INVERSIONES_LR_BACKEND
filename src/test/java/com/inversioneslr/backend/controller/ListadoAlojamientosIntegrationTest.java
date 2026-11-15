@@ -230,9 +230,51 @@ class ListadoAlojamientosIntegrationTest {
                 .andExpect(jsonPath(ruta + ".security").doesNotExist());
     }
 
+    @ParameterizedTest(name = "ACTIVA -> {0}")
+    @ValueSource(strings = {"PAUSADA", "BLOQUEADA"})
+    @DisplayName("HU-022: una publicación deja de aparecer al dejar de estar ACTIVA")
+    void listar_activaCambiaAEstadoNoDisponible_dejaDeAparecer(String estado) throws Exception {
+        long id = insertarPublicacion("Casa inicialmente activa", "ACTIVA");
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(id))
+                .andExpect(jsonPath("$.totalElementos").value(1));
+
+        jdbcTemplate.update(
+                "UPDATE publicacion SET estado = ? WHERE id_publicacion = ?",
+                estado, id);
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(0)))
+                .andExpect(jsonPath("$.totalElementos").value(0))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("No hay alojamientos disponibles por el momento"));
+    }
+
+    @Test
+    @DisplayName("HU-022: una página fuera de rango conserva los totales sin mensaje de ausencia de oferta")
+    void listar_paginaFueraDeRango_conservaTotalesSinMensajeVacio() throws Exception {
+        insertarPublicacion("Casa activa", "ACTIVA");
+
+        mockMvc.perform(get(URL)
+                        .param("pagina", "3")
+                        .param("tamano", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(0)))
+                .andExpect(jsonPath("$.pagina").value(3))
+                .andExpect(jsonPath("$.tamano").value(2))
+                .andExpect(jsonPath("$.totalElementos").value(1))
+                .andExpect(jsonPath("$.totalPaginas").value(1))
+                .andExpect(jsonPath("$.mensaje").doesNotExist());
+    }
+
     /**
-     * Inserta directamente en la base: así se prueban estados a los que todavía ningún endpoint lleva. Las reglas
-     * se llenan porque la base las exige para PENDIENTE_REVISION y ACTIVA.
+     * Prepara publicaciones en distintos estados para probar la consulta pública de forma aislada
+     * de los flujos de creación y moderación. Se completan descripción, dirección y reglas porque
+     * la base de datos las exige para PENDIENTE_REVISION y ACTIVA.
      */
     private long insertarPublicacion(String titulo, String estado) {
         Long id = jdbcTemplate.queryForObject("""
