@@ -1,5 +1,6 @@
 package com.inversioneslr.backend.service;
 
+import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 
@@ -17,4 +18,5 @@ public interface AlojamientoService {
      * @param tamano cantidad de elementos por página
      */
     PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano);
+    PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano, FiltroAlojamientosRequest filtros);
 }

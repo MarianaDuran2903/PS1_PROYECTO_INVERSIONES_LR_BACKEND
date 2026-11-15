@@ -38,7 +38,8 @@ public class SecurityConfig {
     };
     /** Consulta que usan los Visitantes sin iniciar sesión. */
     private static final String[] RUTAS_PUBLICAS_GET = {
-            "/api/v1/alojamientos"
+            "/api/v1/alojamientos",
+            "/api/v1/alojamientos/ciudades"
     };
 
     @Bean

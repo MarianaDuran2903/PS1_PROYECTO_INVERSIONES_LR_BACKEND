@@ -1,5 +1,6 @@
 package com.inversioneslr.backend.service.impl;
 
+import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 import com.inversioneslr.backend.mapper.PublicacionMapper;
@@ -38,14 +39,43 @@ public class AlojamientoServiceImpl implements AlojamientoService {
     @Override
     @Transactional(readOnly = true)
     public PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano) {
-        // Solo las ACTIVAS se ofrecen: una pausada o bloqueada nunca llega a la lista.
-        Page<Publicacion> resultado = publicacionRepository.findByEstado(EstadoPublicacion.ACTIVA,
-                PageRequest.of(pagina, tamano, ORDEN_MAS_RECIENTES));
+        return listarDisponibles(pagina, tamano, new FiltroAlojamientosRequest(null, null, null, null));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano, FiltroAlojamientosRequest filtros) {
+
+        boolean sinFiltros = filtros.idCiudad() == null
+                && filtros.fechaLlegada() == null
+                && filtros.fechaSalida() == null
+                && filtros.huespedes() == null;
+
+        Page<Publicacion> resultado;
+
+        if (sinFiltros) {
+            resultado = publicacionRepository.findByEstado(
+                    EstadoPublicacion.ACTIVA,
+                    PageRequest.of(pagina, tamano, ORDEN_MAS_RECIENTES));
+        } else {
+            resultado = publicacionRepository.buscarDisponibles(
+                    filtros.idCiudad(),
+                    filtros.fechaLlegada(),
+                    filtros.fechaSalida(),
+                    filtros.huespedes(),
+                    PageRequest.of(pagina, tamano));
+        }
+
         log.info("Consulta pública de alojamientos {} {} {} {}",
                 kv("accion", "CONSULTAR_ALOJAMIENTOS_DISPONIBLES"),
                 kv("entidad", ENTIDAD_PUBLICACION),
                 kv("resultado", "EXITOSO"),
                 kv("totalElementos", resultado.getTotalElements()));
-        return PaginaResponse.de(resultado, publicacionMapper::toResumen, MENSAJE_SIN_ALOJAMIENTOS);
+
+        String mensajeVacio = sinFiltros
+                ? MENSAJE_SIN_ALOJAMIENTOS
+                : "No hay alojamientos que coincidan con los filtros seleccionados";
+
+        return PaginaResponse.de(resultado, publicacionMapper::toResumen, mensajeVacio);
     }
 }

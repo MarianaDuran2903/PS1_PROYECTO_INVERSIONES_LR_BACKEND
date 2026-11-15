@@ -1,5 +1,6 @@
 package com.inversioneslr.backend.service.impl;
 
+import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
 import com.inversioneslr.backend.mapper.PublicacionMapper;
@@ -29,6 +30,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,6 +115,31 @@ class AlojamientoServiceImplTest {
         assertThat(respuesta.contenido()).isEmpty();
         assertThat(respuesta.totalElementos()).isZero();
         assertThat(respuesta.mensaje()).isEqualTo("No hay alojamientos disponibles por el momento");
+    }
+
+    @Test
+    void listarDisponibles_conFiltros_consultaRepositorioFiltrado() {
+        LocalDate llegada = LocalDate.of(2030, 6, 10);
+        LocalDate salida = LocalDate.of(2030, 6, 13);
+        FiltroAlojamientosRequest filtros =
+                new FiltroAlojamientosRequest(3L, llegada, salida, 2);
+
+        when(publicacionRepository.buscarDisponibles(
+                eq(3L), eq(llegada), eq(salida), eq(2), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        PaginaResponse<PublicacionResumenResponse> respuesta =
+                servicio.listarDisponibles(1, 12, filtros);
+
+        ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
+        verify(publicacionRepository).buscarDisponibles(
+                eq(3L), eq(llegada), eq(salida), eq(2), pagina.capture());
+
+        assertThat(pagina.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(12);
+        assertThat(pagina.getValue().getSort().isUnsorted()).isTrue();
+        assertThat(respuesta.mensaje()).isEqualTo(
+                "No hay alojamientos que coincidan con los filtros seleccionados");
     }
 
     private Publicacion publicacion(long id, String titulo) {
