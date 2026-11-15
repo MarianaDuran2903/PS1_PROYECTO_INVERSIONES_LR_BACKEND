@@ -16,6 +16,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.stream.Collectors;
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 @Service
@@ -39,17 +41,33 @@ public class AlojamientoServiceImpl implements AlojamientoService {
     @Override
     @Transactional(readOnly = true)
     public PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano) {
-        return listarDisponibles(pagina, tamano, new FiltroAlojamientosRequest(null, null, null, null));
+        return listarDisponibles(
+                pagina, tamano,
+                new FiltroAlojamientosRequest(
+                        null, null, null, null,
+                        null, null, null, null));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano, FiltroAlojamientosRequest filtros) {
 
+        String idsServicios = filtros.idsServicios() == null
+                || filtros.idsServicios().isEmpty()
+                ? null
+                : filtros.idsServicios().stream()
+                .distinct()
+                .map(String::valueOf)
+                .collect(Collectors.joining(","));
+
         boolean sinFiltros = filtros.idCiudad() == null
                 && filtros.fechaLlegada() == null
                 && filtros.fechaSalida() == null
-                && filtros.huespedes() == null;
+                && filtros.huespedes() == null
+                && filtros.idTipo() == null
+                && filtros.precioMinimo() == null
+                && filtros.precioMaximo() == null
+                && idsServicios == null;
 
         Page<Publicacion> resultado;
 
@@ -63,6 +81,10 @@ public class AlojamientoServiceImpl implements AlojamientoService {
                     filtros.fechaLlegada(),
                     filtros.fechaSalida(),
                     filtros.huespedes(),
+                    filtros.idTipo(),
+                    filtros.precioMinimo(),
+                    filtros.precioMaximo(),
+                    idsServicios,
                     PageRequest.of(pagina, tamano));
         }
 

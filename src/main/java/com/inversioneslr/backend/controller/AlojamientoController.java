@@ -41,11 +41,16 @@ public class AlojamientoController {
     @GetMapping
     @Operation(summary = "Buscar alojamientos disponibles",
             description = "Consulta pública paginada de publicaciones ACTIVAS, "
-                    + "de la más reciente a la más antigua. Permite filtrar por ciudad, "
-                    + "cantidad de huéspedes y fechas. Las fechas se indican juntas y "
-                    + "la salida debe ser posterior a la llegada. Con fechas se exige "
-                    + "disponibilidad registrada para todas las noches y ausencia de "
-                    + "reservas que ocupen ese rango. Sin filtros conserva el listado general.")
+                    + "de la más reciente a la más antigua. Permite combinar ciudad, "
+                    + "huéspedes, fechas, tipo de alojamiento, precio por noche y servicios. "
+                    + "Los límites de precio son inclusivos y pueden indicarse por separado. "
+                    + "Si se indican ambos, el máximo debe ser mayor o igual al mínimo. "
+                    + "Se exigen todos los servicios seleccionados; sus identificadores "
+                    + "pueden enviarse repitiendo idsServicios en la consulta. "
+                    + "Las fechas se indican juntas y la salida debe ser posterior a la llegada. "
+                    + "Con fechas se exige disponibilidad registrada para todas las noches "
+                    + "y ausencia de reservas que ocupen ese rango. "
+                    + "Sin filtros conserva el listado general.")
     @ApiResponse(responseCode = "200", description = "Página de alojamientos (puede estar vacía)",
             content = @Content(schema = @Schema(implementation = PaginaResponse.class)))
     @ApiResponse(responseCode = "400", description = "Filtros o paginación inválidos",
