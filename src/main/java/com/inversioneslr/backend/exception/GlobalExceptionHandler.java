@@ -138,6 +138,11 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(AlojamientoNoDisponibleException.class)
+    public ResponseEntity<ErrorResponse> manejarAlojamientoNoDisponible(AlojamientoNoDisponibleException ex, HttpServletRequest request) {
+        return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(PublicacionNoEncontradaException.class)
     public ResponseEntity<ErrorResponse> manejarPublicacionNoEncontrada(PublicacionNoEncontradaException ex,
                                                                         HttpServletRequest request) {

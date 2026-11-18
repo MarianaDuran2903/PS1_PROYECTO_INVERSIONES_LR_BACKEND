@@ -1,10 +1,7 @@
 package com.inversioneslr.backend.controller;
 
 import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
-import com.inversioneslr.backend.dto.response.CatalogoItemResponse;
-import com.inversioneslr.backend.dto.response.ErrorResponse;
-import com.inversioneslr.backend.dto.response.PaginaResponse;
-import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
+import com.inversioneslr.backend.dto.response.*;
 import com.inversioneslr.backend.service.AlojamientoService;
 import com.inversioneslr.backend.service.CatalogoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -55,7 +53,7 @@ public class AlojamientoController {
             content = @Content(schema = @Schema(implementation = PaginaResponse.class)))
     @ApiResponse(responseCode = "400", description = "Filtros o paginación inválidos",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    public ResponseEntity<PaginaResponse<PublicacionResumenResponse>> listar(
+    public ResponseEntity<PaginaResponse<AlojamientoResumenResponse>> listar(
             @Parameter(description = "Número de página, empezando en 0", example = "0")
             @RequestParam(name = "pagina", defaultValue = "0")
             @Min(value = 0, message = "La página debe ser 0 o mayor") int pagina,
@@ -67,6 +65,31 @@ public class AlojamientoController {
                     message = "El tamaño debe estar entre 1 y " + PublicacionController.TAMANO_MAXIMO) int tamano,
             @ParameterObject @Valid @ModelAttribute FiltroAlojamientosRequest filtros) {
         return ResponseEntity.ok(alojamientoService.listarDisponibles(pagina, tamano, filtros));
+    }
+
+    @GetMapping("/{idPublicacion}")
+    @SecurityRequirements
+    @Operation(
+            summary = "Consultar el detalle público de un alojamiento",
+            description = "Devuelve únicamente publicaciones ACTIVAS. "
+                    + "La ubicación pública incluye ciudad y barrio o zona, "
+                    + "sin dirección exacta. No calcula disponibilidad ni cotización. "
+                    + "Una publicación inexistente o no activa responde "
+                    + "con el mismo mensaje de alojamiento no disponible.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Detalle público del alojamiento",
+            content = @Content(schema = @Schema(implementation = AlojamientoDetalleResponse.class)))
+    @ApiResponse(
+            responseCode = "400",
+            description = "Identificador inválido",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "El alojamiento no está disponible",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<AlojamientoDetalleResponse> obtenerDetalle(@PathVariable("idPublicacion") @Min(value = 1, message = "El identificador debe ser mayor que cero") Long idPublicacion) {
+        return ResponseEntity.ok(alojamientoService.obtenerDetalle(idPublicacion));
     }
 
     @GetMapping("/ciudades")
