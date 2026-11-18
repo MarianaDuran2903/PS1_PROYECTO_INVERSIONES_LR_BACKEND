@@ -41,7 +41,8 @@ public class SecurityConfig {
             "/api/v1/alojamientos",
             "/api/v1/alojamientos/ciudades",
             "/api/v1/catalogos/tipos-alojamiento",
-            "/api/v1/catalogos/servicios"
+            "/api/v1/catalogos/servicios",
+            "/api/v1/alojamientos/{idPublicacion}",
     };
 
     @Bean

@@ -734,6 +734,64 @@ class ListadoAlojamientosIntegrationTest {
                         notNullValue()));
     }
 
+    @Test
+    void hu025_listado_incluyeSoloServiciosDeCadaPublicacion() throws Exception {
+        long conServicios = insertarPublicacion("Con servicios", "ACTIVA");
+        long sinServicios = insertarPublicacion("Sin servicios", "ACTIVA");
+        long pausada = insertarPublicacion("Pausada", "PAUSADA");
+
+        long cocina = servicioCatalogo("Cocina");
+        long wifi = servicioCatalogo("Wi-Fi");
+        long parqueadero = servicioCatalogo("Parqueadero");
+
+        asociarServicio(conServicios, wifi);
+        asociarServicio(conServicios, cocina);
+        asociarServicio(pausada, parqueadero);
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(2)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion")
+                        .value(sinServicios))
+                .andExpect(jsonPath("$.contenido[0].servicios", hasSize(0)))
+                .andExpect(jsonPath("$.contenido[1].idPublicacion")
+                        .value(conServicios))
+                .andExpect(jsonPath("$.contenido[1].servicios", hasSize(2)))
+                .andExpect(jsonPath("$.contenido[1].servicios[0].id")
+                        .value(cocina))
+                .andExpect(jsonPath("$.contenido[1].servicios[0].nombre")
+                        .value("Cocina"))
+                .andExpect(jsonPath("$.contenido[1].servicios[1].id")
+                        .value(wifi))
+                .andExpect(jsonPath("$.contenido[1].servicios[1].nombre")
+                        .value("Wi-Fi"))
+                .andExpect(jsonPath("$.totalElementos").value(2));
+    }
+
+    @Test
+    void hu025_listadoFiltrado_conservaServiciosYPaginacion() throws Exception {
+        long primera = insertarPublicacion("Primera", "ACTIVA");
+        long segunda = insertarPublicacion("Segunda", "ACTIVA");
+        long wifi = servicioCatalogo("Wi-Fi");
+
+        asociarServicio(primera, wifi);
+        asociarServicio(segunda, wifi);
+
+        mockMvc.perform(get(URL)
+                        .param("idsServicios", String.valueOf(wifi))
+                        .param("pagina", "1")
+                        .param("tamano", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].idPublicacion").value(primera))
+                .andExpect(jsonPath("$.contenido[0].servicios", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].servicios[0].id").value(wifi))
+                .andExpect(jsonPath("$.contenido[0].servicios[0].nombre").value("Wi-Fi"))
+                .andExpect(jsonPath("$.pagina").value(1))
+                .andExpect(jsonPath("$.totalElementos").value(2))
+                .andExpect(jsonPath("$.totalPaginas").value(2));
+    }
+
     /**
      * Prepara publicaciones en distintos estados para probar la consulta pública de forma aislada
      * de los flujos de creación y moderación. Se completan descripción, dirección y reglas porque

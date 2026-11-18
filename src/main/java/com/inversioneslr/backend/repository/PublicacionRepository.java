@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 
 public interface PublicacionRepository extends JpaRepository<Publicacion, Long> {
 
@@ -33,6 +35,9 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
      */
     @EntityGraph(attributePaths = {"ciudad", "tipo", "politica"})
     Page<Publicacion> findAllBy(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"ciudad", "tipo", "politica"})
+    Optional<Publicacion> findByIdPublicacionAndEstado(Long idPublicacion, EstadoPublicacion estado);
 
     /**
      * La suma de noches disponibles es válida porque la base impide periodos
@@ -105,4 +110,49 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
             @Param("precioMaximo") BigDecimal precioMaximo,
             @Param("idsServicios") String idsServicios,
             Pageable pageable);
+
+    @Query(value = """
+            SELECT s.id_servicio AS id, s.nombre AS nombre
+            FROM publicacion_servicio ps
+            JOIN servicio s ON s.id_servicio = ps.id_servicio
+            WHERE ps.id_publicacion = :idPublicacion
+            ORDER BY s.nombre, s.id_servicio
+            """, nativeQuery = true)
+    List<ServicioLectura> listarServicios(@Param("idPublicacion") Long idPublicacion);
+
+    @Query(value = """
+            SELECT orden AS orden, ruta AS ruta
+            FROM imagen_publicacion
+            WHERE id_publicacion = :idPublicacion
+            ORDER BY orden
+            """, nativeQuery = true)
+    List<ImagenLectura> listarImagenes(@Param("idPublicacion") Long idPublicacion);
+
+    @Query(value = """
+            SELECT ps.id_publicacion AS "idPublicacion",
+                   s.id_servicio AS id,
+                   s.nombre AS nombre
+            FROM publicacion_servicio ps
+            JOIN servicio s ON s.id_servicio = ps.id_servicio
+            WHERE ps.id_publicacion IN (:idsPublicaciones)
+            ORDER BY ps.id_publicacion, s.nombre, s.id_servicio
+            """, nativeQuery = true)
+    List<ServicioPublicacionLectura> listarServiciosDePublicaciones(
+            @Param("idsPublicaciones") List<Long> idsPublicaciones);
+
+    interface ServicioLectura {
+        Long getId();
+        String getNombre();
+    }
+
+    interface ImagenLectura {
+        Integer getOrden();
+        String getRuta();
+    }
+
+    interface ServicioPublicacionLectura {
+        Long getIdPublicacion();
+        Long getId();
+        String getNombre();
+    }
 }

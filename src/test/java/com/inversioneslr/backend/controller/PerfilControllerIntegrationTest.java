@@ -594,6 +594,95 @@ class PerfilControllerIntegrationTest {
                         .value(true));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "primerNombre",
+            "segundoNombre",
+            "primerApellido",
+            "segundoApellido"
+    })
+    void actualizarPerfil_nombreConCaracteresNoPermitidos_conservaDatos(String campo) throws Exception {
+
+        Usuario usuario = crearUsuario("ana@example.com", Rol.HUESPED);
+        String token = obtenerToken(usuario.getCorreo());
+
+        for (String valor : java.util.List.of(
+                "1234",
+                "Ana123",
+                "Ana@",
+                "María-José",
+                "O'Connor"
+        )) {
+            var cambios = new java.util.HashMap<>(cambiosValidos());
+            cambios.put(campo, valor);
+
+            mockMvc.perform(put(URL)
+                            .header(
+                                    HttpHeaders.AUTHORIZATION,
+                                    "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(cambios)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errores." + campo)
+                            .value("Solo se admiten letras y espacios"));
+
+            Usuario sinCambios = usuarioRepository.findById(
+                    usuario.getIdUsuario()).orElseThrow();
+
+            assertThat(sinCambios.getNombre())
+                    .as("El campo %s con valor %s no debe modificar el perfil",
+                            campo, valor)
+                    .isEqualTo(new NombreCompleto(
+                            "Ana", null, "Ruiz", null));
+        }
+
+        Long eventos = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM evento_auditoria
+                WHERE id_usuario = ?
+                  AND accion = ?
+                """,
+                Long.class,
+                usuario.getIdUsuario(),
+                "ACTUALIZACION_PERFIL");
+
+        assertThat(eventos).isZero();
+    }
+
+    @Test
+    void actualizarPerfil_aceptaTildesEniesYNombresCompuestos() throws Exception {
+
+        Usuario usuario = crearUsuario("ana@example.com", Rol.HUESPED);
+        String token = obtenerToken(usuario.getCorreo());
+
+        Map<String, String> cambios = Map.of(
+                "primerNombre", "María José",
+                "segundoNombre", "Andrés",
+                "primerApellido", "Muñoz",
+                "segundoApellido", "Gómez");
+
+        mockMvc.perform(put(URL)
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(cambios)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.primerNombre").value("María José"))
+                .andExpect(jsonPath("$.segundoNombre").value("Andrés"))
+                .andExpect(jsonPath("$.primerApellido").value("Muñoz"))
+                .andExpect(jsonPath("$.segundoApellido").value("Gómez"));
+
+        Usuario actualizado = usuarioRepository.findById(usuario.getIdUsuario()).orElseThrow();
+
+        assertThat(actualizado.getNombre()).isEqualTo(
+                new NombreCompleto(
+                        "María José",
+                        "Andrés",
+                        "Muñoz",
+                        "Gómez"));
+    }
+
     private Map<String, String> cambiosValidos() {
         return Map.of(
                 "primerNombre", "Carlos",
@@ -611,9 +700,7 @@ class PerfilControllerIntegrationTest {
     }
 
     private String obtenerToken(String correo) throws Exception {
-        String cuerpo = objectMapper.writeValueAsString(Map.of(
-                "correo", correo,
-                "contrasena", CONTRASENA));
+        String cuerpo = objectMapper.writeValueAsString(Map.of("correo", correo, "contrasena", CONTRASENA));
 
         var resultado = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -621,9 +708,6 @@ class PerfilControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        return objectMapper.readTree(
-                        resultado.getResponse().getContentAsString())
-                .get("token")
-                .asText();
+        return objectMapper.readTree(resultado.getResponse().getContentAsString()).get("token").asText();
     }
 }

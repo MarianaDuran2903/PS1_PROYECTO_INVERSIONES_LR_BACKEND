@@ -1,8 +1,11 @@
 package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
+import com.inversioneslr.backend.dto.response.AlojamientoDetalleResponse;
+import com.inversioneslr.backend.dto.response.CatalogoItemResponse;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
-import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
+import com.inversioneslr.backend.dto.response.AlojamientoResumenResponse;
+import com.inversioneslr.backend.exception.AlojamientoNoDisponibleException;
 import com.inversioneslr.backend.mapper.PublicacionMapper;
 import com.inversioneslr.backend.model.Publicacion;
 import com.inversioneslr.backend.model.enums.EstadoPublicacion;
@@ -16,6 +19,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
@@ -40,7 +45,45 @@ public class AlojamientoServiceImpl implements AlojamientoService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano) {
+    public AlojamientoDetalleResponse obtenerDetalle(Long idPublicacion) {
+        Publicacion publicacion = publicacionRepository
+                .findByIdPublicacionAndEstado(
+                        idPublicacion,
+                        EstadoPublicacion.ACTIVA)
+                .orElseThrow(AlojamientoNoDisponibleException::new);
+
+        List<CatalogoItemResponse> servicios =
+                publicacionRepository.listarServicios(idPublicacion)
+                        .stream()
+                        .map(servicio -> new CatalogoItemResponse(
+                                servicio.getId(),
+                                servicio.getNombre()))
+                        .toList();
+
+        List<AlojamientoDetalleResponse.ImagenResponse> imagenes =
+                publicacionRepository.listarImagenes(idPublicacion)
+                        .stream()
+                        .map(imagen ->
+                                new AlojamientoDetalleResponse.ImagenResponse(
+                                        imagen.getOrden(),
+                                        imagen.getRuta()))
+                        .toList();
+
+        log.info("Consulta pública de detalle de alojamiento {} {} {} {}",
+                kv("accion", "CONSULTAR_DETALLE_ALOJAMIENTO"),
+                kv("entidad", ENTIDAD_PUBLICACION),
+                kv("idPublicacion", idPublicacion),
+                kv("resultado", "EXITOSO"));
+
+        return publicacionMapper.toDetallePublico(
+                publicacion,
+                servicios,
+                imagenes);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginaResponse<AlojamientoResumenResponse> listarDisponibles(int pagina, int tamano) {
         return listarDisponibles(
                 pagina, tamano,
                 new FiltroAlojamientosRequest(
@@ -50,7 +93,7 @@ public class AlojamientoServiceImpl implements AlojamientoService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano, FiltroAlojamientosRequest filtros) {
+    public PaginaResponse<AlojamientoResumenResponse> listarDisponibles(int pagina, int tamano, FiltroAlojamientosRequest filtros) {
 
         String idsServicios = filtros.idsServicios() == null
                 || filtros.idsServicios().isEmpty()
@@ -98,6 +141,29 @@ public class AlojamientoServiceImpl implements AlojamientoService {
                 ? MENSAJE_SIN_ALOJAMIENTOS
                 : "No hay alojamientos que coincidan con los filtros seleccionados";
 
-        return PaginaResponse.de(resultado, publicacionMapper::toResumen, mensajeVacio);
+        Map<Long, List<CatalogoItemResponse>> serviciosPorPublicacion = obtenerServiciosDePagina(resultado);
+
+        return PaginaResponse.de(
+                resultado,
+                publicacion -> publicacionMapper.toResumenPublico(publicacion, serviciosPorPublicacion.getOrDefault(publicacion.getIdPublicacion(), List.of())),
+                mensajeVacio);
+    }
+
+    private Map<Long, List<CatalogoItemResponse>> obtenerServiciosDePagina(Page<Publicacion> pagina) {
+        if (pagina.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> idsPublicaciones = pagina.getContent()
+                .stream()
+                .map(Publicacion::getIdPublicacion)
+                .toList();
+
+        return publicacionRepository
+                .listarServiciosDePublicaciones(idsPublicaciones)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        PublicacionRepository.ServicioPublicacionLectura::getIdPublicacion,
+                        Collectors.mapping(servicio -> new CatalogoItemResponse(servicio.getId(),servicio.getNombre()), Collectors.toList())));
     }
 }

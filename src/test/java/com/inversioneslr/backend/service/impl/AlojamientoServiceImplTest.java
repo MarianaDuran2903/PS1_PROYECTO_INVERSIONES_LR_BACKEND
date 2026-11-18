@@ -2,7 +2,7 @@ package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
-import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
+import com.inversioneslr.backend.dto.response.AlojamientoResumenResponse;
 import com.inversioneslr.backend.mapper.PublicacionMapper;
 import com.inversioneslr.backend.model.Ciudad;
 import com.inversioneslr.backend.model.DatosPublicacion;
@@ -21,6 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -88,11 +91,11 @@ class AlojamientoServiceImplTest {
         when(publicacionRepository.findByEstado(eq(EstadoPublicacion.ACTIVA), any(Pageable.class)))
                 .thenReturn(pagina);
 
-        PaginaResponse<PublicacionResumenResponse> respuesta = servicio.listarDisponibles(1, 2);
+        PaginaResponse<AlojamientoResumenResponse> respuesta = servicio.listarDisponibles(1, 2);
 
-        assertThat(respuesta.contenido()).extracting(PublicacionResumenResponse::idPublicacion)
+        assertThat(respuesta.contenido()).extracting(AlojamientoResumenResponse::idPublicacion)
                 .containsExactly(21L, 20L);
-        PublicacionResumenResponse primero = respuesta.contenido().get(0);
+        AlojamientoResumenResponse primero = respuesta.contenido().get(0);
         assertThat(primero.titulo()).isEqualTo("Casa en el centro");
         assertThat(primero.ciudad().nombre()).isEqualTo("Cartagena");
         assertThat(primero.tipo().nombre()).isEqualTo("Apartamento");
@@ -111,7 +114,7 @@ class AlojamientoServiceImplTest {
         when(publicacionRepository.findByEstado(eq(EstadoPublicacion.ACTIVA), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        PaginaResponse<PublicacionResumenResponse> respuesta = servicio.listarDisponibles(0, 20);
+        PaginaResponse<AlojamientoResumenResponse> respuesta = servicio.listarDisponibles(0, 20);
 
         assertThat(respuesta.contenido()).isEmpty();
         assertThat(respuesta.totalElementos()).isZero();
@@ -133,7 +136,7 @@ class AlojamientoServiceImplTest {
                 any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        PaginaResponse<PublicacionResumenResponse> respuesta =
+        PaginaResponse<AlojamientoResumenResponse> respuesta =
                 servicio.listarDisponibles(1, 12, filtros);
 
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
@@ -186,6 +189,67 @@ class AlojamientoServiceImplTest {
 
         verify(publicacionRepository).findByEstado(
                 eq(EstadoPublicacion.ACTIVA), any(Pageable.class));
+    }
+
+    @Test
+    void listarDisponibles_cargaServiciosEnUnaConsultaParaLaPagina() {
+        Publicacion primera = publicacion(21L, "Con servicios");
+        Publicacion segunda = publicacion(20L, "Sin servicios");
+
+        Page<Publicacion> pagina = new PageImpl<>(List.of(primera, segunda), PageRequest.of(0, 2), 5);
+
+        when(publicacionRepository.findByEstado(
+                eq(EstadoPublicacion.ACTIVA),
+                any(Pageable.class)))
+                .thenReturn(pagina);
+
+        PublicacionRepository.ServicioPublicacionLectura cocina = mock(PublicacionRepository.ServicioPublicacionLectura.class);
+        when(cocina.getIdPublicacion()).thenReturn(21L);
+        when(cocina.getId()).thenReturn(3L);
+        when(cocina.getNombre()).thenReturn("Cocina");
+
+        PublicacionRepository.ServicioPublicacionLectura wifi = mock(PublicacionRepository.ServicioPublicacionLectura.class);
+        when(wifi.getIdPublicacion()).thenReturn(21L);
+        when(wifi.getId()).thenReturn(1L);
+        when(wifi.getNombre()).thenReturn("Wi-Fi");
+
+        when(publicacionRepository.listarServiciosDePublicaciones(
+                List.of(21L, 20L)))
+                .thenReturn(List.of(cocina, wifi));
+
+        PaginaResponse<AlojamientoResumenResponse> respuesta = servicio.listarDisponibles(0, 2);
+
+        assertThat(respuesta.contenido()).hasSize(2);
+
+        assertThat(respuesta.contenido().get(0).servicios())
+                .extracting(item -> item.nombre())
+                .containsExactly("Cocina", "Wi-Fi");
+
+        assertThat(respuesta.contenido().get(1).servicios()).isEmpty();
+
+        assertThat(respuesta.totalElementos()).isEqualTo(5);
+        assertThat(respuesta.totalPaginas()).isEqualTo(3);
+
+        verify(publicacionRepository).listarServiciosDePublicaciones(List.of(21L, 20L));
+
+        verify(publicacionRepository, never()).listarServicios(21L);
+        verify(publicacionRepository, never()).listarServicios(20L);
+        verify(publicacionRepository, never()).listarImagenes(21L);
+        verify(publicacionRepository, never()).listarImagenes(20L);
+    }
+
+    @Test
+    void listarDisponibles_paginaVacia_noConsultaServicios() {
+        when(publicacionRepository.findByEstado(
+                eq(EstadoPublicacion.ACTIVA),
+                any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        PaginaResponse<AlojamientoResumenResponse> respuesta = servicio.listarDisponibles(0, 12);
+
+        assertThat(respuesta.contenido()).isEmpty();
+
+        verify(publicacionRepository, never()).listarServiciosDePublicaciones(anyList());
     }
 
     private Publicacion publicacion(long id, String titulo) {
