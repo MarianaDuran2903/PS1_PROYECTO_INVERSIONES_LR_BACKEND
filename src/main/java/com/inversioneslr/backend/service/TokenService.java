@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Emisión y validación de los tokens de sesión (RF-USR-002).
+ * Emisión y validación de los tokens de sesión.
  */
 public interface TokenService {
 

@@ -8,7 +8,7 @@ import com.inversioneslr.backend.security.UsuarioAutenticado;
 import java.util.Optional;
 
 /**
- * Inicio de sesión y sesiones activas (RF-USR-002, RF-USR-003).
+ * Inicio de sesión y sesiones activas.
  */
 public interface AutenticacionService {
 
@@ -25,6 +25,8 @@ public interface AutenticacionService {
      * está desactivada o restringida.
      */
     Optional<UsuarioAutenticado> autenticarToken(String token);
+
+    LoginResponse reactivarCuenta(LoginRequest request);
 
     SesionResponse obtenerSesion(UsuarioAutenticado usuario);
 }

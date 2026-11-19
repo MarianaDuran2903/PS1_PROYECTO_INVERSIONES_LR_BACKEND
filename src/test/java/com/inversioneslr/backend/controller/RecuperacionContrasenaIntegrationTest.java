@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Recuperación de contraseña simulada de punta a punta, con PostgreSQL real (Testcontainers) y la migración V5.
+ * Recuperación de contraseña simulada de punta a punta, con PostgreSQL real (Testcontainers) y la migración V7.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

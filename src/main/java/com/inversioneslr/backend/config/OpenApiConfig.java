@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Contrato OpenAPI 3 (RNF-INT-001). Disponible en /swagger-ui.html y /v3/api-docs.
+ * Contrato OpenAPI 3. Disponible en /swagger-ui.html y /v3/api-docs.
  * El esquema bearerAuth activa el botón "Authorize" de Swagger para probar con el token del login.
  */
 @Configuration

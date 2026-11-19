@@ -4,6 +4,8 @@ import com.inversioneslr.backend.dto.request.LoginRequest;
 import com.inversioneslr.backend.dto.response.LoginResponse;
 import com.inversioneslr.backend.dto.response.SesionResponse;
 import com.inversioneslr.backend.exception.CredencialesInvalidasException;
+import com.inversioneslr.backend.exception.CuentaDesactivadaException;
+import com.inversioneslr.backend.exception.EstadoCuentaInvalidoException;
 import com.inversioneslr.backend.mapper.UsuarioMapper;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
@@ -53,29 +55,43 @@ public class AutenticacionServiceImpl implements AutenticacionService {
     @Override
     @Transactional
     public LoginResponse iniciarSesion(LoginRequest request) {
-        String correo = request.correo().strip().toLowerCase(Locale.ROOT);
-        Optional<Usuario> encontrado = usuarioRepository.findByCorreoIgnoreCase(correo);
-
-        if (encontrado.isEmpty()) {
-            passwordEncoder.matches(request.contrasena(), hashSimulado);
-            throw rechazar(null, correo, MOTIVO_CREDENCIALES_INVALIDAS);
-        }
-        Usuario usuario = encontrado.get();
-        if (!passwordEncoder.matches(request.contrasena(), usuario.getContrasenaHash())) {
-            throw rechazar(usuario.getIdUsuario(), correo, MOTIVO_CREDENCIALES_INVALIDAS);
-        }
+        Usuario usuario = validarCredenciales(request);
         if (!usuario.isCuentaActiva()) {
-            throw rechazar(usuario.getIdUsuario(), correo, MOTIVO_CUENTA_DESACTIVADA);
+            auditoriaService.registrarIntentoFallido(
+                    usuario.getIdUsuario(),
+                    usuario.getCorreo(),
+                    AccionAuditoria.INICIO_SESION,
+                    ENTIDAD_USUARIO,
+                    String.valueOf(usuario.getIdUsuario()),
+                    MOTIVO_CUENTA_DESACTIVADA
+            );
+
+            throw new CuentaDesactivadaException(
+                    "Tu cuenta está desactivada. Puedes reactivarla para volver a acceder.");
         }
-        if (usuario.isRestringido()) {
-            throw rechazar(usuario.getIdUsuario(), correo, MOTIVO_CUENTA_RESTRINGIDA);
+        return  crearSesion(usuario);
+    }
+
+    @Override
+    @Transactional
+    public LoginResponse reactivarCuenta(LoginRequest request) {
+        Usuario usuario = validarCredenciales(request);
+
+        if (usuario.isCuentaActiva()) {
+            throw new EstadoCuentaInvalidoException("Tu cuenta ya está activa. Inicia sesión normalmente.");
         }
 
-        TokenGenerado token = tokenService.generar(usuario);
-        auditoriaService.registrarExito(usuario, AccionAuditoria.INICIO_SESION, ENTIDAD_USUARIO,
-                String.valueOf(usuario.getIdUsuario()));
-        return new LoginResponse(token.token(), LoginResponse.TIPO_BEARER, token.segundosDeValidez(),
-                usuarioMapper.toResponse(usuario));
+        usuario.setCuentaActiva(true);
+        Usuario reactivado = usuarioRepository.save(usuario);
+
+        auditoriaService.registrarExito(
+                reactivado,
+                AccionAuditoria.ACTIVACION_CUENTA,
+                ENTIDAD_USUARIO,
+                String.valueOf(reactivado.getIdUsuario())
+        );
+
+        return crearSesion(reactivado);
     }
 
     @Override
@@ -93,6 +109,47 @@ public class AutenticacionServiceImpl implements AutenticacionService {
         // El filtro JWT ya verificó que el usuario existe y está habilitado.
         Usuario usuario = usuarioRepository.findById(autenticado.idUsuario()).orElseThrow();
         return new SesionResponse(usuarioMapper.toResponse(usuario), autenticado.expiraEn());
+    }
+
+    private Usuario validarCredenciales(LoginRequest request) {
+        String correo = request.correo().strip().toLowerCase(Locale.ROOT);
+
+        Optional<Usuario> encontrado = usuarioRepository.findByCorreoIgnoreCase(correo);
+
+        if (encontrado.isEmpty()) {
+            passwordEncoder.matches(request.contrasena(), hashSimulado);
+            throw rechazar(null, correo, MOTIVO_CREDENCIALES_INVALIDAS);
+        }
+
+        Usuario usuario = encontrado.get();
+
+        if (!passwordEncoder.matches(request.contrasena(), usuario.getContrasenaHash())) {
+            throw rechazar(usuario.getIdUsuario(), correo, MOTIVO_CREDENCIALES_INVALIDAS);
+        }
+
+        if (usuario.isRestringido()) {
+            throw rechazar(usuario.getIdUsuario(), correo, MOTIVO_CUENTA_RESTRINGIDA);
+        }
+
+        return usuario;
+    }
+
+    private LoginResponse crearSesion(Usuario usuario) {
+        TokenGenerado token = tokenService.generar(usuario);
+
+        auditoriaService.registrarExito(
+                usuario,
+                AccionAuditoria.INICIO_SESION,
+                ENTIDAD_USUARIO,
+                String.valueOf(usuario.getIdUsuario())
+        );
+
+        return new LoginResponse(
+                token.token(),
+                LoginResponse.TIPO_BEARER,
+                token.segundosDeValidez(),
+                usuarioMapper.toResponse(usuario)
+        );
     }
 
     private CredencialesInvalidasException rechazar(Long idUsuario, String correo, String motivo) {
