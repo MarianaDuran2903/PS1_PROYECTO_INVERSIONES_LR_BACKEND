@@ -53,6 +53,13 @@ public class Usuario {
         this.rol = rol;
     }
 
+    /**
+     * Reemplaza la contraseña. Recibe el hash ya calculado, nunca la contraseña en claro.
+     */
+    public void cambiarContrasenaHash(String nuevoHash) {
+        this.contrasenaHash = nuevoHash;
+    }
+
     public Long getIdUsuario() {
         return idUsuario;
     }

@@ -1,5 +1,6 @@
 package com.inversioneslr.backend.dto.request;
 
+import com.inversioneslr.backend.validation.ConfirmacionDeContrasena;
 import com.inversioneslr.backend.validation.ContrasenaSegura;
 import com.inversioneslr.backend.validation.ContrasenasCoinciden;
 import com.inversioneslr.backend.validation.NombrePersona;
@@ -59,7 +60,7 @@ public record RegistroUsuarioRequest(
                 accessMode = Schema.AccessMode.WRITE_ONLY)
         @NotBlank(message = "La confirmación de la contraseña es obligatoria")
         String confirmarContrasena
-) {
+) implements ConfirmacionDeContrasena {
 
     // Evita que las contraseñas aparezcan en logs o trazas si el objeto se imprime.
     @Override

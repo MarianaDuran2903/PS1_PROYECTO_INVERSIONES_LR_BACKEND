@@ -80,6 +80,12 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.BAD_REQUEST, "El cuerpo de la petición no es un JSON válido", request, null);
     }
 
+    @ExceptionHandler(TokenRecuperacionInvalidoException.class)
+    public ResponseEntity<ErrorResponse> manejarTokenRecuperacionInvalido(TokenRecuperacionInvalidoException ex,
+                                                                          HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(ReferenciaInvalidaException.class)
     public ResponseEntity<ErrorResponse> manejarReferenciaInvalida(ReferenciaInvalidaException ex,
                                                                    HttpServletRequest request) {
