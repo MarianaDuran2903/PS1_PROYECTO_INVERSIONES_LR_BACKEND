@@ -31,15 +31,22 @@ public class AuditoriaServiceImpl implements AuditoriaService {
 
     @Override
     public void registrarExito(Usuario usuario, AccionAuditoria accion, String tipoEntidad, String idEntidad) {
+        registrarExito(usuario, accion, tipoEntidad, idEntidad, null);
+    }
+
+    @Override
+    public void registrarExito(Usuario usuario, AccionAuditoria accion, String tipoEntidad, String idEntidad,
+                               String detalle) {
         eventoAuditoriaRepository.save(
-                new EventoAuditoria(usuario, accion, tipoEntidad, idEntidad, ResultadoAuditoria.EXITOSO));
+                new EventoAuditoria(usuario, accion, tipoEntidad, idEntidad, ResultadoAuditoria.EXITOSO, detalle));
         log.info("Evento de auditoria {} {}",
                 kv("accion", accion),
                 kv("resultado", ResultadoAuditoria.EXITOSO),
                 kv("usuario", usuario.getCorreo()),
                 kv("entidad", tipoEntidad),
                 kv("idEntidad", idEntidad),
-                kv("rol", usuario.getRol()));
+                kv("rol", usuario.getRol()),
+                kv("detalle", detalle));
     }
 
     @Override

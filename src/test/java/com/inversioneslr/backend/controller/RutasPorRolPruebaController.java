@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Endpoints que existen SOLO en las pruebas: uno por rol, protegidos igual que lo estarán las funcionalidades
- * reales de las próximas historias. Permiten verificar HU-003 (criterios 3 a 6) sin inventar funcionalidades.
+ * reales de las próximas historias. Permiten verificar el acceso por rol sin inventar funcionalidades.
  */
 @RestController
 @RequestMapping("/api/v1/prueba-roles")

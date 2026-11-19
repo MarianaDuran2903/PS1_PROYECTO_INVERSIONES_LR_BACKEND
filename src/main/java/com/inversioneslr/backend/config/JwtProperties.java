@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Configuración del JWT. El secreto viene de la variable de entorno JWT_SECRET (regla 11).
+ * Configuración del JWT. El secreto viene de la variable de entorno JWT_SECRET y nunca se escribe en el código.
  */
 @Validated
 @ConfigurationProperties(prefix = "seguridad.jwt")

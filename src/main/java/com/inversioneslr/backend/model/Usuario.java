@@ -12,7 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * Supertipo de los roles HUESPED, ANFITRION y ADMINISTRADOR (tabla usuario, MER v0.3).
+ * Supertipo de los roles HUESPED, ANFITRION y ADMINISTRADOR (tabla usuario).
  */
 @Entity
 @Table(name = "usuario")
@@ -68,6 +68,10 @@ public class Usuario {
         return nombre;
     }
 
+    public void setNombre(NombreCompleto nombre) {
+        this.nombre = nombre;
+    }
+
     public String getCorreo() {
         return correo;
     }
@@ -82,6 +86,10 @@ public class Usuario {
 
     public boolean isCuentaActiva() {
         return cuentaActiva;
+    }
+
+    public void setCuentaActiva(boolean cuentaActiva) {
+        this.cuentaActiva = cuentaActiva;
     }
 
     public boolean isRestringido() {

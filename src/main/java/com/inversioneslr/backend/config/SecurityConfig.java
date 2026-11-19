@@ -23,8 +23,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Seguridad (RNF-SEG-001, RNF-SEG-002): API sin estado con JWT, rutas públicas explícitas y todo lo demás
- * autenticado. Cada endpoint exige su rol con @PreAuthorize (RF-USR-003).
+ * Seguridad: API sin estado con JWT, rutas públicas explícitas y todo lo demás
+ * autenticado. Cada endpoint exige su rol con @PreAuthorize.
  */
 @Configuration
 @EnableMethodSecurity
@@ -35,7 +35,16 @@ public class SecurityConfig {
     };
     private static final String[] RUTAS_PUBLICAS_POST = {
             "/api/v1/auth/registro/huesped", "/api/v1/auth/registro/anfitrion", "/api/v1/auth/login",
+            "/api/v1/auth/reactivar",
             "/api/v1/auth/recuperacion/solicitud", "/api/v1/auth/recuperacion/restablecer"
+    };
+    /** Consulta que usan los Visitantes sin iniciar sesión. */
+    private static final String[] RUTAS_PUBLICAS_GET = {
+            "/api/v1/alojamientos",
+            "/api/v1/alojamientos/ciudades",
+            "/api/v1/catalogos/tipos-alojamiento",
+            "/api/v1/catalogos/servicios",
+            "/api/v1/alojamientos/{idPublicacion}",
     };
 
     @Bean
@@ -51,6 +60,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, RUTAS_PUBLICAS_POST).permitAll()
+                        .requestMatchers(HttpMethod.GET, RUTAS_PUBLICAS_GET).permitAll()
                         .requestMatchers(RUTAS_DOCUMENTACION).permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())

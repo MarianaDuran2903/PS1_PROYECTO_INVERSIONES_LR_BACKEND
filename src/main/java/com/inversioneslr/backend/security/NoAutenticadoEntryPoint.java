@@ -19,8 +19,7 @@ import java.time.OffsetDateTime;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 /**
- * Responde 401 con el formato estándar de error cuando una ruta protegida se pide sin token válido
- * (RNF-SEG-002).
+ * Responde 401 con el formato estándar de error cuando una ruta protegida se pide sin token válido.
  */
 @Component
 public class NoAutenticadoEntryPoint implements AuthenticationEntryPoint {

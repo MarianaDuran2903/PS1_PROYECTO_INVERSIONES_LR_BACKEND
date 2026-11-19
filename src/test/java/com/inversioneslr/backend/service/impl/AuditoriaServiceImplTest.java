@@ -47,6 +47,21 @@ class AuditoriaServiceImplTest {
         assertThat(evento.getTipoEntidad()).isEqualTo("Usuario");
         assertThat(evento.getIdEntidad()).isEqualTo("7");
         assertThat(evento.getResultado()).isEqualTo(ResultadoAuditoria.EXITOSO);
+        assertThat(evento.getDetalle()).isNull();
+    }
+
+    @Test
+    void registrarExito_conDetalle_loGuardaEnElEvento() {
+        Usuario admin = new Usuario(new NombreCompleto("Admin", null, "Sistema", null),
+                "admin@correo.com", "hash", Rol.ADMINISTRADOR);
+
+        auditoriaService.registrarExito(admin, AccionAuditoria.INTERVENCION_ADMIN_PUBLICACION, "Publicacion", "12",
+                "Corrección de la dirección");
+
+        ArgumentCaptor<EventoAuditoria> captor = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(eventoAuditoriaRepository).save(captor.capture());
+        assertThat(captor.getValue().getDetalle()).isEqualTo("Corrección de la dirección");
+        assertThat(captor.getValue().getAccion()).isEqualTo(AccionAuditoria.INTERVENCION_ADMIN_PUBLICACION);
     }
 
     @Test

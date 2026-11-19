@@ -50,7 +50,7 @@ public class AutenticacionController {
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión",
-            description = "Valida las credenciales y devuelve un JWT con el rol del usuario (RF-USR-002, HU-003). "
+            description = "Valida las credenciales y devuelve un JWT con el rol del usuario. "
                     + "Ruta pública.")
     @ApiResponse(responseCode = "200", description = "Sesión creada",
             content = @Content(schema = @Schema(implementation = LoginResponse.class)))
@@ -107,7 +107,7 @@ public class AutenticacionController {
 
     @PostMapping("/registro/huesped")
     @Operation(summary = "Registrar Huésped",
-            description = "Crea una cuenta con rol HUESPED. Ruta pública (RF-USR-001, HU-001).")
+            description = "Crea una cuenta con rol HUESPED. Ruta pública.")
     @ApiResponse(responseCode = "201", description = "Cuenta creada con rol Huésped",
             content = @Content(schema = @Schema(implementation = UsuarioResponse.class)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos, incompletos o JSON mal formado",
@@ -121,7 +121,7 @@ public class AutenticacionController {
 
     @PostMapping("/registro/anfitrion")
     @Operation(summary = "Registrar Anfitrión",
-            description = "Crea una cuenta con rol ANFITRION. Ruta pública (RF-USR-001, HU-002).")
+            description = "Crea una cuenta con rol ANFITRION. Ruta pública.")
     @ApiResponse(responseCode = "201", description = "Cuenta creada con rol Anfitrión",
             content = @Content(schema = @Schema(implementation = UsuarioResponse.class)))
     @ApiResponse(responseCode = "400", description = "Datos inválidos, incompletos o JSON mal formado",
@@ -131,5 +131,36 @@ public class AutenticacionController {
     public ResponseEntity<UsuarioResponse> registrarAnfitrion(@Valid @RequestBody RegistroUsuarioRequest request) {
         UsuarioResponse respuesta = registroUsuarioService.registrarAnfitrion(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
+    }
+
+    @PostMapping("/reactivar")
+    @Operation(
+            summary = "Reactivar mi cuenta",
+            description = "Reactiva una cuenta desactivada después de validar las credenciales. "
+                    + "No reactiva cuentas restringidas. "
+                    + "Al éxito, crea una sesión y devuelve un JWT (MAR-137, HU-007, RF-USR-007). "
+                    + "Ruta pública.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Cuenta reactivada y sesión creada",
+            content = @Content(
+                    schema = @Schema(implementation = LoginResponse.class)))
+    @ApiResponse(
+            responseCode = "400",
+            description = "La cuenta ya está activa o el cuerpo no es válido",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "401",
+            description = "Credenciales incorrectas o cuenta restringida",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "La cuenta sigue desactivada",
+            content = @Content(
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<LoginResponse> reactivarCuenta(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(autenticacionService.reactivarCuenta(request));
     }
 }
