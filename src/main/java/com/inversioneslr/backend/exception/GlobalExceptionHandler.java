@@ -17,8 +17,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.BindException;
+import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -48,13 +49,14 @@ public class GlobalExceptionHandler {
         this.auditoriaService = auditoriaService;
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> manejarValidacion(MethodArgumentNotValidException ex,
-                                                           HttpServletRequest request) {
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ErrorResponse> manejarValidacion(BindException ex, HttpServletRequest request) {
+
         Map<String, String> errores = new LinkedHashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-            errores.putIfAbsent(error.getField(), error.getDefaultMessage());
+            errores.putIfAbsent(error.getField(), mensajeDeCampo(error));
         }
+
         return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request, errores);
     }
 
@@ -95,18 +97,25 @@ public class GlobalExceptionHandler {
                 Map.of(ex.getName(), "El tipo de dato no es válido"));
     }
 
-    /**
-     * Un parámetro de la consulta no cumple sus restricciones (por ejemplo, tamano=0 en un listado paginado).
-     */
     @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ErrorResponse> manejarParametrosInvalidos(HandlerMethodValidationException ex,
-                                                                    HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> manejarParametrosInvalidos(HandlerMethodValidationException ex, HttpServletRequest request) {
+
         Map<String, String> errores = new LinkedHashMap<>();
+
         for (ParameterValidationResult resultado : ex.getAllValidationResults()) {
-            String parametro = nombreDelParametro(resultado.getMethodParameter());
-            resultado.getResolvableErrors().stream().findFirst()
-                    .ifPresent(error -> errores.putIfAbsent(parametro, error.getDefaultMessage()));
+            if (resultado instanceof ParameterErrors campos) {
+                for (FieldError error : campos.getFieldErrors()) {
+                    errores.putIfAbsent(error.getField(), mensajeDeCampo(error));
+                }
+            } else {
+                String parametro = nombreDelParametro(resultado.getMethodParameter());
+                resultado.getResolvableErrors().stream().findFirst()
+                        .ifPresent(error -> errores.putIfAbsent(
+                                parametro,
+                                Objects.requireNonNullElse(error.getDefaultMessage(), "El valor no es válido")));
+            }
         }
+
         return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request, errores);
     }
 
@@ -127,6 +136,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> manejarTransicionNoPermitida(TransicionNoPermitidaException ex,
                                                                       HttpServletRequest request) {
         return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(AlojamientoNoDisponibleException.class)
+    public ResponseEntity<ErrorResponse> manejarAlojamientoNoDisponible(AlojamientoNoDisponibleException ex, HttpServletRequest request) {
+        return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(PublicacionNoEncontradaException.class)
@@ -221,5 +235,12 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 errores);
         return ResponseEntity.status(estado).body(cuerpo);
+    }
+
+    private static String mensajeDeCampo(FieldError error) {
+        return error.isBindingFailure()
+                ? "El tipo de dato no es válido"
+                : Objects.requireNonNullElse(
+                error.getDefaultMessage(), "El valor no es válido");
     }
 }

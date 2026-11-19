@@ -1,7 +1,9 @@
 package com.inversioneslr.backend.service;
 
+import com.inversioneslr.backend.dto.request.FiltroAlojamientosRequest;
+import com.inversioneslr.backend.dto.response.AlojamientoDetalleResponse;
 import com.inversioneslr.backend.dto.response.PaginaResponse;
-import com.inversioneslr.backend.dto.response.PublicacionResumenResponse;
+import com.inversioneslr.backend.dto.response.AlojamientoResumenResponse;
 
 /**
  * Consulta pública de los alojamientos que se ofrecen a Visitantes y Huéspedes.
@@ -16,5 +18,7 @@ public interface AlojamientoService {
      * @param pagina número de página, empezando en 0
      * @param tamano cantidad de elementos por página
      */
-    PaginaResponse<PublicacionResumenResponse> listarDisponibles(int pagina, int tamano);
+    PaginaResponse<AlojamientoResumenResponse> listarDisponibles(int pagina, int tamano);
+    PaginaResponse<AlojamientoResumenResponse> listarDisponibles(int pagina, int tamano, FiltroAlojamientosRequest filtros);
+    AlojamientoDetalleResponse obtenerDetalle(Long idPublicacion);
 }
