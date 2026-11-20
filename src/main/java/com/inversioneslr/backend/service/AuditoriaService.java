@@ -21,6 +21,12 @@ public interface AuditoriaService {
                         String detalle);
 
     /**
+     * Guarda en evento_auditoria una acción que ejecuta el sistema por su cuenta, sin usuario (por ejemplo, el
+     * vencimiento de una reserva sin pago), y la escribe en el log JSON con resultado EXITOSO.
+     */
+    void registrarEventoDelSistema(AccionAuditoria accion, String tipoEntidad, String idEntidad, String detalle);
+
+    /**
      * Escribe en el log JSON un intento fallido. No se persiste porque la operación se revierte.
      */
     void registrarFallo(String usuario, AccionAuditoria accion, String tipoEntidad, String motivo);

@@ -65,6 +65,23 @@ class AuditoriaServiceImplTest {
     }
 
     @Test
+    void registrarEventoDelSistema_guardaEventoExitosoSinUsuario() {
+        auditoriaService.registrarEventoDelSistema(AccionAuditoria.VENCER_RESERVA, "Reserva", "31",
+                "Venció el plazo para pagar la reserva");
+
+        ArgumentCaptor<EventoAuditoria> captor = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(eventoAuditoriaRepository).save(captor.capture());
+        EventoAuditoria evento = captor.getValue();
+        assertThat(evento.getUsuario()).isNull();
+        assertThat(evento.getAccion()).isEqualTo(AccionAuditoria.VENCER_RESERVA);
+        assertThat(evento.getTipoEntidad()).isEqualTo("Reserva");
+        assertThat(evento.getIdEntidad()).isEqualTo("31");
+        assertThat(evento.getResultado()).isEqualTo(ResultadoAuditoria.EXITOSO);
+        assertThat(evento.getDetalle()).isEqualTo("Venció el plazo para pagar la reserva");
+        verify(usuarioRepository, never()).getReferenceById(any());
+    }
+
+    @Test
     void registrarFallo_noPersisteEvento() {
         auditoriaService.registrarFallo("ana@correo.com", AccionAuditoria.REGISTRO_USUARIO, "Usuario",
                 "CORREO_DUPLICADO");

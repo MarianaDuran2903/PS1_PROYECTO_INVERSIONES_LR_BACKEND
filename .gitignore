@@ -12,6 +12,7 @@ target/
 
 # Variables de entorno locales (nunca subir secretos)
 .env
+scripts/backup/backup.env
 
 # Sistema operativo
 .DS_Store
