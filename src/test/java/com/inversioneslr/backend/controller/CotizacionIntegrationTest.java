@@ -350,7 +350,8 @@ class CotizacionIntegrationTest {
     @Test
     @DisplayName("La reserva cobra lo mismo que la cotización")
     void cotizar_yReservar_danElMismoTotal() throws Exception {
-        for (int[] estadia : new int[][]{{10, 13}, {10, 17}}) {
+        // Las estadías no se cruzan: la primera reserva ocupa sus noches y la segunda cotización las tendría ocupadas.
+        for (int[] estadia : new int[][]{{10, 13}, {20, 27}}) {
             String total = cotizar(huesped, cuerpo(dia(estadia[0]), dia(estadia[1]), 2, null))
                     .andExpect(status().isOk())
                     .andReturn().getResponse().getContentAsString();
