@@ -386,7 +386,7 @@ class ListadoAlojamientosIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"CONFIRMADA", "REVISION_MANUAL"})
+    @ValueSource(strings = {"PENDIENTE_PAGO", "CONFIRMADA", "REVISION_MANUAL"})
     void filtrar_fechas_excluyeReservaQueOcupaElRango(String estado) throws Exception {
         long id = insertarPublicacion("Con reserva", "ACTIVA");
         periodo(id, "2030-06-01", "2030-06-30", "DISPONIBLE");
@@ -852,9 +852,11 @@ class ListadoAlojamientosIntegrationTest {
                     estado, clave_idempotencia, precio_base,
                     porcentaje_descuento_aplicado, valor_descuento,
                     tarifa_limpieza, porcentaje_tarifa_servicio, tarifa_servicio,
-                    total, horas_anticipacion_aplicada, porcentaje_devolucion_aplicado
+                    total, horas_anticipacion_aplicada, porcentaje_devolucion_aplicado,
+                    fecha_expiracion
                 )
-                VALUES (?, ?, ?, ?, ?, ?, 100000, 0, 0, 0, 0, 0, 100000, 24, 100)
+                VALUES (?, ?, ?, ?, ?, ?, 100000, 0, 0, 0, 0, 0, 100000, 24, 100,
+                        now() + interval '30 minutes')
                 """,
                 huesped.getIdUsuario(), idPublicacion,
                 Date.valueOf(LocalDate.parse(inicio)),
