@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 /**
  * Tramo del calendario de una publicación (tabla periodo_disponibilidad). Va de fechaInicio, incluida, a
@@ -81,6 +82,17 @@ public class PeriodoDisponibilidad {
         LocalDate desde = fechaInicio.isAfter(llegada) ? fechaInicio : llegada;
         LocalDate hasta = fechaFin.isBefore(salida) ? fechaFin : salida;
         return Math.max(0, ChronoUnit.DAYS.between(desde, hasta));
+    }
+
+    /**
+     * Si los tramos cubren todas las noches de [llegada, salida), sin huecos. Los tramos de una publicación no se
+     * superponen entre sí, así que basta con que sus noches en común sumen las noches pedidas. Una estadía sin
+     * noches no se cubre.
+     */
+    public static boolean cubren(List<PeriodoDisponibilidad> tramos, LocalDate llegada, LocalDate salida) {
+        long noches = ChronoUnit.DAYS.between(llegada, salida);
+        long cubiertas = tramos.stream().mapToLong(tramo -> tramo.nochesEnComun(llegada, salida)).sum();
+        return noches > 0 && cubiertas == noches;
     }
 
     /**

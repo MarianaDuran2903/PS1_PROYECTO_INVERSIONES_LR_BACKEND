@@ -158,6 +158,12 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(CotizacionNoDisponibleException.class)
+    public ResponseEntity<ErrorResponse> manejarCotizacionNoDisponible(CotizacionNoDisponibleException ex,
+                                                                       HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(ClaveIdempotenciaReutilizadaException.class)
     public ResponseEntity<ErrorResponse> manejarClaveIdempotenciaReutilizada(ClaveIdempotenciaReutilizadaException ex,
                                                                              HttpServletRequest request) {

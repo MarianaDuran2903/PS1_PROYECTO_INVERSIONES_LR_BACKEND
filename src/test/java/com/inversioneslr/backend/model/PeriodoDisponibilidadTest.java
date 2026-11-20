@@ -7,6 +7,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.BeanUtils;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,6 +36,59 @@ class PeriodoDisponibilidadTest {
         PeriodoDisponibilidad periodo = disponible("2030-06-10", "2030-06-20");
 
         assertThat(periodo.nochesEnComun(LocalDate.parse(llegada), LocalDate.parse(salida))).isEqualTo(esperadas);
+    }
+
+    @Test
+    void cubren_unTramoQueContieneLaEstadia_laCubre() {
+        assertThat(PeriodoDisponibilidad.cubren(List.of(disponible("2030-06-01", "2030-07-01")),
+                LocalDate.parse("2030-06-10"), LocalDate.parse("2030-06-13"))).isTrue();
+    }
+
+    @Test
+    void cubren_dosTramosContiguos_laCubrenJuntos() {
+        List<PeriodoDisponibilidad> tramos = List.of(disponible("2030-06-01", "2030-06-11"),
+                disponible("2030-06-11", "2030-07-01"));
+
+        assertThat(PeriodoDisponibilidad.cubren(tramos, LocalDate.parse("2030-06-10"),
+                LocalDate.parse("2030-06-13"))).isTrue();
+    }
+
+    @Test
+    void cubren_unTramoQueTerminaJustoEnLaSalida_laCubre() {
+        assertThat(PeriodoDisponibilidad.cubren(List.of(disponible("2030-06-10", "2030-06-13")),
+                LocalDate.parse("2030-06-10"), LocalDate.parse("2030-06-13"))).isTrue();
+    }
+
+    @Test
+    void cubren_conUnHuecoEnMedio_noLaCubren() {
+        List<PeriodoDisponibilidad> tramos = List.of(disponible("2030-06-01", "2030-06-11"),
+                disponible("2030-06-12", "2030-07-01"));
+
+        assertThat(PeriodoDisponibilidad.cubren(tramos, LocalDate.parse("2030-06-10"),
+                LocalDate.parse("2030-06-13"))).isFalse();
+    }
+
+    @ParameterizedTest(name = "tramo 10-13 y estadía {0} a {1}")
+    @CsvSource({
+            "2030-06-09, 2030-06-13",
+            "2030-06-10, 2030-06-14",
+            "2030-06-01, 2030-06-30"
+    })
+    void cubren_cuandoLaEstadiaSeSaleDelTramo_noLaCubren(String llegada, String salida) {
+        assertThat(PeriodoDisponibilidad.cubren(List.of(disponible("2030-06-10", "2030-06-13")),
+                LocalDate.parse(llegada), LocalDate.parse(salida))).isFalse();
+    }
+
+    @Test
+    void cubren_sinTramos_noLaCubren() {
+        assertThat(PeriodoDisponibilidad.cubren(List.of(), LocalDate.parse("2030-06-10"),
+                LocalDate.parse("2030-06-13"))).isFalse();
+    }
+
+    @Test
+    void cubren_unaEstadiaSinNoches_nuncaSeCubre() {
+        assertThat(PeriodoDisponibilidad.cubren(List.of(disponible("2030-06-01", "2030-07-01")),
+                LocalDate.parse("2030-06-10"), LocalDate.parse("2030-06-10"))).isFalse();
     }
 
     @Test

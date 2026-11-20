@@ -4,7 +4,6 @@ import com.inversioneslr.backend.config.ReservaProperties;
 import com.inversioneslr.backend.dto.request.CrearReservaRequest;
 import com.inversioneslr.backend.exception.AlojamientoNoDisponibleException;
 import com.inversioneslr.backend.exception.ClaveIdempotenciaReutilizadaException;
-import com.inversioneslr.backend.exception.DatosReservaInvalidosException;
 import com.inversioneslr.backend.exception.FechasNoDisponiblesException;
 import com.inversioneslr.backend.mapper.ReservaMapper;
 import com.inversioneslr.backend.model.ConfiguracionPlataforma;
@@ -32,7 +31,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
@@ -44,9 +42,6 @@ public class ReservaServiceImpl implements ReservaService {
     static final String ENTIDAD_RESERVA = "Reserva";
     static final String MOTIVO_FECHAS_NO_DISPONIBLES = "FECHAS_NO_DISPONIBLES";
     static final String MOTIVO_CLAVE_REUTILIZADA = "CLAVE_IDEMPOTENCIA_REUTILIZADA";
-
-    /** "Hoy" se cuenta en la zona del negocio: a las 8 p. m. en Colombia ya es el día siguiente en UTC. */
-    static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Bogota");
 
     private static final String RESTRICCION_RESERVA_SIN_SOLAPE = "ex_reserva_sin_solape";
     private static final String RESTRICCION_PERIODO_SIN_SOLAPE = "ex_periodo_sin_solape";
@@ -108,7 +103,7 @@ public class ReservaServiceImpl implements ReservaService {
 
         LocalDate llegada = request.fechaLlegada();
         LocalDate salida = request.fechaSalida();
-        exigirLlegadaDesdeHoy(llegada);
+        ReglasDeEstadia.exigirLlegadaDesdeHoy(clock, llegada);
 
         // Se bloquea la publicación: quien reserva después espera y ya ve el calendario que dejó el anterior.
         Publicacion publicacion = publicacionRepository
@@ -121,17 +116,17 @@ public class ReservaServiceImpl implements ReservaService {
         if (previa.isPresent()) {
             return repetir(previa.get(), request, autenticado);
         }
-        exigirCapacidad(publicacion, request.huespedes());
+        ReglasDeEstadia.exigirCapacidad(publicacion, request.huespedes());
 
         // Una reserva vencida cuya tarea programada aún no corrió no debe estorbar a quien pide esas fechas.
         expiracionReservasService.vencerPendientesDe(publicacion.getIdPublicacion());
 
         List<PeriodoDisponibilidad> libres = periodoRepository.buscarQueCruzan(publicacion.getIdPublicacion(),
                 TipoPeriodo.DISPONIBLE, llegada, salida);
-        long noches = ChronoUnit.DAYS.between(llegada, salida);
-        if (nochesCubiertas(libres, llegada, salida) != noches) {
+        if (!PeriodoDisponibilidad.cubren(libres, llegada, salida)) {
             throw rechazoPorFechas(autenticado);
         }
+        long noches = ChronoUnit.DAYS.between(llegada, salida);
 
         ConfiguracionPlataforma configuracion = configuracionRepository.findById(ConfiguracionPlataforma.ID_UNICO)
                 .orElseThrow(() -> new IllegalStateException("No existe la configuración de la plataforma"));
@@ -185,28 +180,6 @@ public class ReservaServiceImpl implements ReservaService {
                     .orElseThrow(() -> error));
         }
         throw error;
-    }
-
-    private void exigirLlegadaDesdeHoy(LocalDate llegada) {
-        LocalDate hoy = LocalDate.now(clock.withZone(ZONA_NEGOCIO));
-        if (llegada.isBefore(hoy)) {
-            throw new DatosReservaInvalidosException("fechaLlegada", "La fecha de llegada no puede ser anterior a hoy");
-        }
-    }
-
-    private void exigirCapacidad(Publicacion publicacion, int huespedes) {
-        if (huespedes > publicacion.getCapacidad()) {
-            throw new DatosReservaInvalidosException("huespedes",
-                    "El alojamiento admite como máximo " + publicacion.getCapacidad() + " huéspedes");
-        }
-    }
-
-    /**
-     * Los tramos libres no se superponen entre sí, así que si suman las noches pedidas las cubren todas, sin
-     * huecos.
-     */
-    private static long nochesCubiertas(List<PeriodoDisponibilidad> libres, LocalDate llegada, LocalDate salida) {
-        return libres.stream().mapToLong(periodo -> periodo.nochesEnComun(llegada, salida)).sum();
     }
 
     /**
