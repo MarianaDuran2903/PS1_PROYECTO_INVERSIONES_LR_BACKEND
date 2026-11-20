@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -467,7 +468,8 @@ class ReservaIntegrationTest {
     @Test
     @DisplayName("Llegar antes de hoy responde 400 en el campo de la llegada")
     void reservar_conLlegadaPasada_responde400() throws Exception {
-        reservar(huesped, "clave-1", cuerpo(LocalDate.now().minusDays(1), dia(13), 2))
+        // "Hoy" es el de Bogotá, como en el servicio; el reloj del servidor de CI está en UTC.
+        reservar(huesped, "clave-1", cuerpo(LocalDate.now(ZoneId.of("America/Bogota")).minusDays(1), dia(13), 2))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errores.fechaLlegada", containsString("anterior a hoy")));
     }

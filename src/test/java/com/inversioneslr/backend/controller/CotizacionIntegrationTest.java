@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -386,7 +387,8 @@ class CotizacionIntegrationTest {
     @Test
     @DisplayName("Llegar antes de hoy responde 400 en el campo de la llegada")
     void cotizar_conLlegadaPasada_responde400() throws Exception {
-        cotizar(huesped, cuerpo(LocalDate.now().minusDays(1), dia(13), 2, null))
+        // "Hoy" es el de Bogotá, como en el servicio; el reloj del servidor de CI está en UTC.
+        cotizar(huesped, cuerpo(LocalDate.now(ZoneId.of("America/Bogota")).minusDays(1), dia(13), 2, null))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errores.fechaLlegada", containsString("anterior a hoy")));
     }
