@@ -2,6 +2,8 @@ package com.inversioneslr.backend.controller;
 
 import com.inversioneslr.backend.config.OpenApiConfig;
 import com.inversioneslr.backend.dto.response.CalendarioDisponibilidadResponse;
+import com.inversioneslr.backend.dto.request.AbrirPeriodoDisponibilidadRequest;
+import com.inversioneslr.backend.dto.response.PeriodoDisponibilidadResponse;
 import com.inversioneslr.backend.dto.response.ErrorResponse;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 import com.inversioneslr.backend.service.DisponibilidadService;
@@ -12,9 +14,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -71,5 +77,16 @@ public class DisponibilidadController {
         return ResponseEntity.ok(
                 disponibilidadService.consultarCalendarioPropio(idPublicacion, anfitrion)
         );
+    }
+
+    @PostMapping("/{idPublicacion}/disponibilidad")
+    @PreAuthorize("hasRole('ANFITRION')")
+    @Operation(summary = "Abrir un periodo disponible", description = "Registra un rango disponible en el calendario propio.")
+    public ResponseEntity<PeriodoDisponibilidadResponse> abrirPeriodo(
+            @PathVariable Long idPublicacion,
+            @Valid @RequestBody AbrirPeriodoDisponibilidadRequest request,
+            @AuthenticationPrincipal UsuarioAutenticado anfitrion) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(disponibilidadService.abrirPeriodoPropio(idPublicacion, request, anfitrion));
     }
 }

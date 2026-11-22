@@ -38,6 +38,17 @@ public interface PeriodoDisponibilidadRepository extends JpaRepository<PeriodoDi
                                                 @Param("llegada") LocalDate llegada,
                                                 @Param("salida") LocalDate salida);
 
+    @Query("""
+            SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END
+            FROM PeriodoDisponibilidad p
+            WHERE p.publicacion.idPublicacion = :idPublicacion
+              AND p.fechaInicio < :fechaFin
+              AND p.fechaFin > :fechaInicio
+            """)
+    boolean existeSolape(@Param("idPublicacion") Long idPublicacion,
+                         @Param("fechaInicio") LocalDate fechaInicio,
+                         @Param("fechaFin") LocalDate fechaFin);
+
     /**
      * El tramo RESERVADO que una reserva ocupa, si lo tiene.
      */

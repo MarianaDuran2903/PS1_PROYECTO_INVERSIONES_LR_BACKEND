@@ -14,15 +14,18 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.sql.Date;
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -100,6 +103,93 @@ class ConsultaCalendarioDisponibilidadIntegrationTest {
     void consultar_sinToken_responde401() throws Exception {
         mockMvc.perform(get(URL.formatted(1)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void abrirPeriodo_propioYValido_registraDisponibilidad() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+
+        mockMvc.perform(post(URL.formatted(idPublicacion))
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fechaInicio":"2026-06-10","fechaFin":"2026-06-13"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fechaInicio").value("2026-06-10"))
+                .andExpect(jsonPath("$.fechaFin").value("2026-06-13"))
+                .andExpect(jsonPath("$.tipo").value("DISPONIBLE"));
+
+        assertThat(periodosDe(idPublicacion)).isEqualTo(1);
+    }
+
+    @Test
+    void abrirPeriodo_fechaFinIgualOAnterior_responde400YSinGuardar() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+
+        mockMvc.perform(post(URL.formatted(idPublicacion))
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fechaInicio":"2026-06-10","fechaFin":"2026-06-10"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(periodosDe(idPublicacion)).isZero();
+    }
+
+    @Test
+    void abrirPeriodo_rangoSolapado_responde409YSinAgregarPeriodo() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+        insertarPeriodo(idPublicacion, null, "2026-06-10", "2026-06-12", "DISPONIBLE");
+
+        mockMvc.perform(post(URL.formatted(idPublicacion))
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fechaInicio":"2026-06-11","fechaFin":"2026-06-13"}
+                                """))
+                .andExpect(status().isConflict());
+
+        assertThat(periodosDe(idPublicacion)).isEqualTo(1);
+    }
+
+    @Test
+    void abrirPeriodo_publicacionBloqueada_responde409YSinGuardar() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+        jdbcTemplate.update("UPDATE publicacion SET estado = 'BLOQUEADA', motivo_bloqueo = ? "
+                + "WHERE id_publicacion = ?", "Motivo de prueba", idPublicacion);
+
+        mockMvc.perform(post(URL.formatted(idPublicacion))
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fechaInicio":"2026-06-10","fechaFin":"2026-06-13"}
+                                """))
+                .andExpect(status().isConflict());
+
+        assertThat(periodosDe(idPublicacion)).isZero();
+    }
+
+    @Test
+    void abrirPeriodo_publicacionAjena_responde403YSinGuardar() throws Exception {
+        Long idPublicacion = insertarPublicacion(otroAnfitrion, "Casa ajena");
+
+        mockMvc.perform(post(URL.formatted(idPublicacion))
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fechaInicio":"2026-06-10","fechaFin":"2026-06-13"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        assertThat(periodosDe(idPublicacion)).isZero();
+    }
+
+    private int periodosDe(Long idPublicacion) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM periodo_disponibilidad WHERE id_publicacion = ?",
+                Integer.class, idPublicacion);
     }
 
     private Long insertarPublicacion(Usuario propietario, String titulo) {

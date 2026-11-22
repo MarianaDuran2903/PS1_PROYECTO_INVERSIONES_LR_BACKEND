@@ -8,6 +8,7 @@ import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.model.enums.Rol;
 import com.inversioneslr.backend.model.enums.TipoPeriodo;
 import com.inversioneslr.backend.repository.PeriodoDisponibilidadRepository;
+import com.inversioneslr.backend.repository.PublicacionRepository;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 import com.inversioneslr.backend.service.PublicacionService;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class DisponibilidadServiceImplTest {
     private PeriodoDisponibilidadRepository periodoRepository;
 
     @Mock
+    private PublicacionRepository publicacionRepository;
+
+    @Mock
     private PeriodoDisponibilidad periodo;
 
     @Test
@@ -53,7 +57,7 @@ class DisponibilidadServiceImplTest {
         when(periodo.getTipo()).thenReturn(TipoPeriodo.DISPONIBLE);
 
         CalendarioDisponibilidadResponse respuesta =
-                new DisponibilidadServiceImpl(publicacionService, periodoRepository)
+                new DisponibilidadServiceImpl(publicacionService, periodoRepository, publicacionRepository)
                         .consultarCalendarioPropio(idPublicacion, anfitrion);
 
         assertThat(respuesta.idPublicacion()).isEqualTo(idPublicacion);
