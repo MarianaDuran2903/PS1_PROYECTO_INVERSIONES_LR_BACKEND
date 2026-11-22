@@ -32,6 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.util.Optional;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
@@ -123,14 +124,13 @@ public class PagoServiceImpl implements PagoService {
      */
     @Override
     public PagoResponse consultar(Long idReserva, UsuarioAutenticado huesped) {
-        Optional<String> sesionAbierta = transaccion.execute(estado -> {
+        // execute puede devolver nulo por contrato, pero este contenido siempre devuelve un Optional.
+        Optional<String> sesionAbierta = Objects.requireNonNull(transaccion.execute(estado -> {
             propia(reservaRepository.findById(idReserva), idReserva, huesped);
             Pago ultimo = ultimoPago(idReserva);
             return ultimo.getEstado().estaAbierto() ? Optional.of(ultimo.getReferenciaStripe()) : Optional.empty();
-        });
-        if (sesionAbierta != null && sesionAbierta.isPresent()) {
-            sincronizarConPasarela(idReserva, sesionAbierta.get());
-        }
+        }));
+        sesionAbierta.ifPresent(idSesion -> sincronizarConPasarela(idReserva, idSesion));
         return transaccion.execute(estado -> pagoMapper.toResponse(ultimoPago(idReserva), OffsetDateTime.now(clock)));
     }
 
