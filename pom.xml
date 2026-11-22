@@ -22,6 +22,7 @@
         <springdoc.version>2.6.0</springdoc.version>
         <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <stripe.version>34.2.0</stripe.version>
         <jacoco.version>0.8.12</jacoco.version>
         <testcontainers.version>1.21.4</testcontainers.version>
         <sonar.organization>marianaduran2903</sonar.organization>
@@ -90,6 +91,13 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- Pagos con Stripe Checkout (solo modo de pruebas) -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>${stripe.version}</version>
         </dependency>
 
         <!-- Logs en formato JSON -->
