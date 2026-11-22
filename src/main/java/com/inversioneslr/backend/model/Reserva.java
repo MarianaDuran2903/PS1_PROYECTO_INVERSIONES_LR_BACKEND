@@ -150,6 +150,29 @@ public class Reserva {
     }
 
     /**
+     * El pago fue aprobado: la reserva queda CONFIRMADA y conserva las fechas que ya ocupaba.
+     */
+    public void confirmar() {
+        if (!estaPendienteDePago()) {
+            throw new IllegalStateException("La reserva no está pendiente de pago: " + estado);
+        }
+        this.estado = EstadoReserva.CONFIRMADA;
+    }
+
+    /**
+     * Alarga el plazo para pagar, para que la reserva no venza mientras el Huésped paga en la pasarela. Nunca lo
+     * acorta: un plazo anterior al actual se ignora.
+     */
+    public void extenderPlazoHasta(OffsetDateTime nuevoPlazo) {
+        if (!estaPendienteDePago()) {
+            throw new IllegalStateException("La reserva no está pendiente de pago: " + estado);
+        }
+        if (nuevoPlazo.isAfter(fechaExpiracion)) {
+            this.fechaExpiracion = nuevoPlazo;
+        }
+    }
+
+    /**
      * Si la solicitud repetida con la misma clave de idempotencia pide exactamente lo mismo que esta reserva.
      */
     public boolean coincideCon(Long idPublicacion, LocalDate llegada, LocalDate salida, int huespedes) {
