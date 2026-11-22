@@ -1,0 +1,98 @@
+package com.inversioneslr.backend.model;
+
+import com.inversioneslr.backend.model.enums.Rol;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+/**
+ * Supertipo de los roles HUESPED, ANFITRION y ADMINISTRADOR (tabla usuario).
+ */
+@Entity
+@Table(name = "usuario")
+public class Usuario {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_usuario")
+    private Long idUsuario;
+
+    @Embedded
+    private NombreCompleto nombre;
+
+    @Column(name = "correo", nullable = false, length = 254)
+    private String correo;
+
+    @Column(name = "contrasena_hash", nullable = false, length = 255)
+    private String contrasenaHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rol", nullable = false, length = 15)
+    private Rol rol;
+
+    @Column(name = "cuenta_activa", nullable = false)
+    private boolean cuentaActiva = true;
+
+    @Column(name = "restringido", nullable = false)
+    private boolean restringido = false;
+
+    protected Usuario() {
+        // Requerido por JPA
+    }
+
+    public Usuario(NombreCompleto nombre, String correo, String contrasenaHash, Rol rol) {
+        this.nombre = nombre;
+        this.correo = correo;
+        this.contrasenaHash = contrasenaHash;
+        this.rol = rol;
+    }
+
+    /**
+     * Reemplaza la contraseña. Recibe el hash ya calculado, nunca la contraseña en claro.
+     */
+    public void cambiarContrasenaHash(String nuevoHash) {
+        this.contrasenaHash = nuevoHash;
+    }
+
+    public Long getIdUsuario() {
+        return idUsuario;
+    }
+
+    public NombreCompleto getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(NombreCompleto nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getCorreo() {
+        return correo;
+    }
+
+    public String getContrasenaHash() {
+        return contrasenaHash;
+    }
+
+    public Rol getRol() {
+        return rol;
+    }
+
+    public boolean isCuentaActiva() {
+        return cuentaActiva;
+    }
+
+    public void setCuentaActiva(boolean cuentaActiva) {
+        this.cuentaActiva = cuentaActiva;
+    }
+
+    public boolean isRestringido() {
+        return restringido;
+    }
+}

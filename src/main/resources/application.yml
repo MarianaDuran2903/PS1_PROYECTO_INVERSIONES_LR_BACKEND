@@ -1,0 +1,86 @@
+spring:
+  config:
+    # Carga la configuración local al ejecutar spring-boot:run desde la raíz del backend.
+    import: optional:file:./.env[.properties]
+  application:
+    name: inversiones-lr-backend
+  autoconfigure:
+    # Sin usuario en memoria por defecto: los usuarios viven en la tabla usuario.
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:inversiones_lr}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    deserialization:
+      # "capacidad": 2.5 se rechaza en lugar de truncarse a 2.
+      accept-float-as-int: false
+
+seguridad:
+  jwt:
+    # Obligatorio: mínimo 32 caracteres. Sin valor, la aplicación no arranca.
+    secreto: ${JWT_SECRET:}
+    expiracion-minutos: ${JWT_EXPIRACION_MINUTOS:60}
+  cors:
+    origenes-permitidos: ${FRONTEND_URL:http://localhost:4200}
+  recuperacion:
+    # Vigencia del enlace de recuperación de contraseña simulada.
+    minutos-validez: ${RECUPERACION_MINUTOS_VALIDEZ:30}
+  admin-inicial:
+    # Si no existe ningún ADMINISTRADOR y ambos tienen valor, se crea al arrancar.
+    correo: ${ADMIN_CORREO:}
+    contrasena: ${ADMIN_CONTRASENA:}
+
+reservas:
+  # Minutos que una reserva espera el pago antes de vencer y devolver las fechas al calendario.
+  minutos-vigencia: ${RESERVA_MINUTOS_VIGENCIA:30}
+  expiracion:
+    # La tarea programada que vence las reservas sin pago; se apaga solo en las pruebas.
+    habilitada: ${RESERVA_EXPIRACION_HABILITADA:true}
+    intervalo-ms: ${RESERVA_EXPIRACION_INTERVALO_MS:60000}
+
+pagos:
+  # Pago de reservas con Stripe Checkout, solo en modo de pruebas. Las claves van únicamente por variables de
+  # entorno; sin STRIPE_SECRET_KEY la aplicación arranca pero iniciar un pago responde 502.
+  moneda: ${PAGO_MONEDA:COP}
+  # Debe ser de al menos 31 minutos (Stripe exige 30 como mínimo).
+  minutos-sesion: ${PAGO_MINUTOS_SESION:35}
+  # Cuánto sobrevive la reserva a su sesión de pago, para que alcance a llegar el aviso del pago.
+  minutos-gracia: ${PAGO_MINUTOS_GRACIA:5}
+  intentos-maximos: ${PAGO_INTENTOS_MAXIMOS:3}
+  url-exito: ${PAGO_URL_EXITO:http://localhost:4200/reservas/{idReserva}/pago/resultado}
+  url-cancelacion: ${PAGO_URL_CANCELACION:http://localhost:4200/reservas/{idReserva}/pago/resultado?cancelado=true}
+  stripe:
+    # Clave secreta de prueba (sk_test_...). Una clave real (sk_live_...) impide arrancar.
+    clave-secreta: ${STRIPE_SECRET_KEY:}
+    # Secreto de firma del webhook (whsec_...), que entrega Stripe al crear el endpoint o con "stripe listen".
+    clave-webhook: ${STRIPE_WEBHOOK_SECRET:}
+    tolerancia-firma-segundos: ${STRIPE_TOLERANCIA_FIRMA_SEGUNDOS:300}
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
