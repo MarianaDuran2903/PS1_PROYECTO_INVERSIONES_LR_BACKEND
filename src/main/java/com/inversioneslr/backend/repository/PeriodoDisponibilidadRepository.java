@@ -13,6 +13,15 @@ import java.util.Optional;
 
 public interface PeriodoDisponibilidadRepository extends JpaRepository<PeriodoDisponibilidad, Long> {
 
+    /** Todos los tramos del calendario de una publicación, ordenados cronológicamente. */
+    @Query("""
+            SELECT p FROM PeriodoDisponibilidad p
+            WHERE p.publicacion.idPublicacion = :idPublicacion
+            ORDER BY p.fechaInicio ASC, p.fechaFin ASC
+            """)
+    List<PeriodoDisponibilidad> buscarCalendarioDePublicacion(
+            @Param("idPublicacion") Long idPublicacion);
+
     /**
      * Tramos de un tipo que tocan alguna noche de [llegada, salida), de la fecha más temprana a la más tardía.
      */
