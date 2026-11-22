@@ -46,7 +46,7 @@ public class PeriodoDisponibilidad {
     private LocalDate fechaFin;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo", nullable = false, length = 10)
+    @Column(name = "tipo", nullable = false, length = 11)
     private TipoPeriodo tipo;
 
     protected PeriodoDisponibilidad() {
@@ -73,6 +73,16 @@ public class PeriodoDisponibilidad {
     public static PeriodoDisponibilidad reservado(Publicacion publicacion, Reserva reserva, LocalDate fechaInicio,
                                                   LocalDate fechaFin) {
         return new PeriodoDisponibilidad(publicacion, reserva, fechaInicio, fechaFin, TipoPeriodo.RESERVADO);
+    }
+
+    /**
+     * Cierra un periodo disponible sin eliminarlo del calendario.
+     */
+    public void cerrarComoNoOfrecido() {
+        if (tipo != TipoPeriodo.DISPONIBLE || reserva != null) {
+            throw new IllegalStateException("Solo se puede cerrar un periodo disponible sin reserva");
+        }
+        this.tipo = TipoPeriodo.NO_OFRECIDO;
     }
 
     /**

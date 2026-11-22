@@ -128,6 +128,30 @@ class PeriodoDisponibilidadTest {
     }
 
     @Test
+    void cerrarComoNoOfrecido_unPeriodoDisponible_loMarcaSinCambiarElRango() {
+        PeriodoDisponibilidad periodo = disponible("2030-06-10", "2030-06-20");
+
+        periodo.cerrarComoNoOfrecido();
+
+        assertThat(periodo.getTipo()).isEqualTo(TipoPeriodo.NO_OFRECIDO);
+        assertThat(periodo.getReserva()).isNull();
+        assertThat(periodo.getFechaInicio()).isEqualTo(LocalDate.parse("2030-06-10"));
+        assertThat(periodo.getFechaFin()).isEqualTo(LocalDate.parse("2030-06-20"));
+    }
+
+    @Test
+    void cerrarComoNoOfrecido_unPeriodoReservado_noSePermite() {
+        Reserva reserva = BeanUtils.instantiateClass(Reserva.class);
+        PeriodoDisponibilidad periodo = PeriodoDisponibilidad.reservado(publicacion, reserva,
+                LocalDate.parse("2030-06-10"), LocalDate.parse("2030-06-20"));
+
+        assertThatThrownBy(periodo::cerrarComoNoOfrecido)
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(periodo.getTipo()).isEqualTo(TipoPeriodo.RESERVADO);
+        assertThat(periodo.getReserva()).isSameAs(reserva);
+    }
+
+    @Test
     void liberar_unPeriodoDisponible_noSePermite() {
         PeriodoDisponibilidad periodo = disponible("2030-06-10", "2030-06-20");
 
