@@ -5,6 +5,7 @@ package com.inversioneslr.backend.model.enums;
  */
 public enum TipoPeriodo {
     DISPONIBLE,
+    NO_OFRECIDO,
     RESERVADO,
     BLOQUEADO
 }

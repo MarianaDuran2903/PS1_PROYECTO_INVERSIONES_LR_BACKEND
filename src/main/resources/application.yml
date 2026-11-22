@@ -1,4 +1,7 @@
 spring:
+  config:
+    # Carga la configuración local al ejecutar spring-boot:run desde la raíz del backend.
+    import: optional:file:./.env[.properties]
   application:
     name: inversiones-lr-backend
   autoconfigure:

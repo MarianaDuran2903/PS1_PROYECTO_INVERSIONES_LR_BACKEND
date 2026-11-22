@@ -4,6 +4,7 @@ import com.inversioneslr.backend.dto.response.CalendarioDisponibilidadResponse;
 import com.inversioneslr.backend.dto.response.PeriodoDisponibilidadResponse;
 import com.inversioneslr.backend.dto.response.PublicacionResponse;
 import com.inversioneslr.backend.model.PeriodoDisponibilidad;
+import com.inversioneslr.backend.model.Publicacion;
 import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.model.enums.Rol;
 import com.inversioneslr.backend.model.enums.TipoPeriodo;
@@ -20,6 +21,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.beans.BeanUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -39,6 +42,34 @@ class DisponibilidadServiceImplTest {
 
     @Mock
     private PeriodoDisponibilidad periodo;
+
+    @Test
+    void cerrarPeriodoPropio_verificaPropietarioBloqueaYMarcaNoOfrecido() {
+        Long idPublicacion = 12L;
+        Long idPeriodo = 2L;
+        UsuarioAutenticado anfitrion = new UsuarioAutenticado(
+                7L, "anfitrion@correo.com", Rol.ANFITRION, Instant.parse("2026-03-01T00:00:00Z"));
+        PublicacionResponse propia = new PublicacionResponse(
+                idPublicacion, 7L, EstadoPublicacion.BORRADOR, "Casa propia",
+                null, null, null, null, null, null, 4,
+                new BigDecimal("200000.00"), BigDecimal.ZERO, null, null);
+        Publicacion publicacion = BeanUtils.instantiateClass(Publicacion.class);
+        PeriodoDisponibilidad periodo = PeriodoDisponibilidad.disponible(publicacion,
+                LocalDate.parse("2026-03-01"), LocalDate.parse("2026-03-03"));
+        when(publicacionService.obtenerPropia(idPublicacion, anfitrion)).thenReturn(propia);
+        when(publicacionRepository.bloquearPorId(idPublicacion)).thenReturn(Optional.of(publicacion));
+        when(periodoRepository.bloquearPorIdYPublicacion(idPeriodo, idPublicacion))
+                .thenReturn(Optional.of(periodo));
+        when(periodoRepository.saveAndFlush(periodo)).thenReturn(periodo);
+
+        PeriodoDisponibilidadResponse respuesta =
+                new DisponibilidadServiceImpl(publicacionService, periodoRepository, publicacionRepository)
+                        .cerrarPeriodoPropio(idPublicacion, idPeriodo, anfitrion);
+
+        assertThat(respuesta.tipo()).isEqualTo("NO_OFRECIDO");
+        verify(publicacionRepository).bloquearPorId(idPublicacion);
+        verify(periodoRepository).bloquearPorIdYPublicacion(idPeriodo, idPublicacion);
+    }
 
     @Test
     void consultarCalendarioPropio_verificaPropietarioYDevuelvePeriodos() {
