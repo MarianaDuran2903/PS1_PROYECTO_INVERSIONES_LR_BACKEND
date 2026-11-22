@@ -36,7 +36,9 @@ public class SecurityConfig {
     private static final String[] RUTAS_PUBLICAS_POST = {
             "/api/v1/auth/registro/huesped", "/api/v1/auth/registro/anfitrion", "/api/v1/auth/login",
             "/api/v1/auth/reactivar",
-            "/api/v1/auth/recuperacion/solicitud", "/api/v1/auth/recuperacion/restablecer"
+            "/api/v1/auth/recuperacion/solicitud", "/api/v1/auth/recuperacion/restablecer",
+            // La llama Stripe, sin sesión de usuario: la protege la firma del aviso, no el JWT.
+            "/api/v1/pagos/webhook"
     };
     /** Consulta que usan los Visitantes sin iniciar sesión. */
     private static final String[] RUTAS_PUBLICAS_GET = {

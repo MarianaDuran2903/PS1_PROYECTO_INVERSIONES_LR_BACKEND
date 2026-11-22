@@ -22,5 +22,13 @@ public enum AccionAuditoria {
     SOLICITUD_RECUPERACION,
     RECUPERACION_CONTRASENA,
     CREAR_RESERVA,
-    VENCER_RESERVA
+    VENCER_RESERVA,
+    INICIAR_PAGO,
+    APROBAR_PAGO,
+    RECHAZAR_PAGO,
+    EXPIRAR_PAGO,
+    CONFIRMAR_RESERVA,
+    /** Un pago aprobado llegó cuando la reserva ya no esperaba pago: no se confirma y queda para revisión. */
+    PAGO_SIN_RESERVA_ACTIVA,
+    FIRMA_WEBHOOK_INVALIDA
 }

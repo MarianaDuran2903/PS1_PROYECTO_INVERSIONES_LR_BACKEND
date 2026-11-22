@@ -1,6 +1,7 @@
 package com.inversioneslr.backend.service.impl;
 
 import com.inversioneslr.backend.model.NombreCompleto;
+import com.inversioneslr.backend.model.Pago;
 import com.inversioneslr.backend.model.PeriodoDisponibilidad;
 import com.inversioneslr.backend.model.PoliticaCancelacion;
 import com.inversioneslr.backend.model.Publicacion;
@@ -8,9 +9,11 @@ import com.inversioneslr.backend.model.Reserva;
 import com.inversioneslr.backend.model.DesglosePrecio;
 import com.inversioneslr.backend.model.Usuario;
 import com.inversioneslr.backend.model.enums.AccionAuditoria;
+import com.inversioneslr.backend.model.enums.EstadoPago;
 import com.inversioneslr.backend.model.enums.EstadoReserva;
 import com.inversioneslr.backend.model.enums.Rol;
 import com.inversioneslr.backend.model.enums.TipoPeriodo;
+import com.inversioneslr.backend.repository.PagoRepository;
 import com.inversioneslr.backend.repository.PeriodoDisponibilidadRepository;
 import com.inversioneslr.backend.repository.ReservaRepository;
 import com.inversioneslr.backend.service.AuditoriaService;
@@ -49,6 +52,8 @@ class ExpiracionReservasServiceImplTest {
     @Mock
     private PeriodoDisponibilidadRepository periodoRepository;
     @Mock
+    private PagoRepository pagoRepository;
+    @Mock
     private AuditoriaService auditoriaService;
 
     private ExpiracionReservasServiceImpl servicio;
@@ -58,8 +63,8 @@ class ExpiracionReservasServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        servicio = new ExpiracionReservasServiceImpl(reservaRepository, periodoRepository, auditoriaService,
-                Clock.fixed(AHORA, ZoneOffset.UTC));
+        servicio = new ExpiracionReservasServiceImpl(reservaRepository, periodoRepository, pagoRepository,
+                auditoriaService, Clock.fixed(AHORA, ZoneOffset.UTC));
         huesped = new Usuario(new NombreCompleto("Ana", null, "Pérez", null), "ana@correo.com", "hash", Rol.HUESPED);
         politica = BeanUtils.instantiateClass(PoliticaCancelacion.class);
         ReflectionTestUtils.setField(politica, "horasAnticipacionMin", 24);
@@ -108,6 +113,25 @@ class ExpiracionReservasServiceImplTest {
 
         assertThat(vencidas).isEqualTo(1);
         assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+    }
+
+    @Test
+    @DisplayName("Al vencer la reserva, su sesión de pago abierta también expira")
+    void vencerPendientes_conSesionDePagoAbierta_laExpira() {
+        Reserva reserva = reservaPendiente(31L, "2030-06-10", "2030-06-13");
+        Pago pago = Pago.iniciar(reserva, "cs_test_1", "https://pago.test/1", AHORA_ODT.minusMinutes(2), "COP",
+                AHORA_ODT.minusMinutes(40));
+        when(reservaRepository.bloquearPendientesVencidas(AHORA_ODT, ExpiracionReservasServiceImpl.TAMANO_LOTE))
+                .thenReturn(List.of(reserva));
+        when(periodoRepository.findByReservaIdReserva(31L)).thenReturn(Optional.empty());
+        when(pagoRepository.findByReservaIdReservaAndEstadoIn(31L, EstadoPago.ABIERTOS))
+                .thenReturn(Optional.of(pago));
+
+        servicio.vencerPendientes();
+
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(pago.getEstado()).isEqualTo(EstadoPago.EXPIRADO);
+        assertThat(pago.getFechaActualizacion()).isEqualTo(AHORA_ODT);
     }
 
     @Test
