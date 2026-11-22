@@ -15,7 +15,7 @@ public record PeriodoDisponibilidadResponse(
                 periodo.getIdPeriodo(),
                 periodo.getFechaInicio(),
                 periodo.getFechaFin(),
-                periodo.getTipo()
+                periodo.getTipo().name()
         );
     }
 }

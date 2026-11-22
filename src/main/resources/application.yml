@@ -39,6 +39,14 @@ seguridad:
     correo: ${ADMIN_CORREO:}
     contrasena: ${ADMIN_CONTRASENA:}
 
+reservas:
+  # Minutos que una reserva espera el pago antes de vencer y devolver las fechas al calendario.
+  minutos-vigencia: ${RESERVA_MINUTOS_VIGENCIA:30}
+  expiracion:
+    # La tarea programada que vence las reservas sin pago; se apaga solo en las pruebas.
+    habilitada: ${RESERVA_EXPIRACION_HABILITADA:true}
+    intervalo-ms: ${RESERVA_EXPIRACION_INTERVALO_MS:60000}
+
 server:
   port: ${SERVER_PORT:8080}
   error:

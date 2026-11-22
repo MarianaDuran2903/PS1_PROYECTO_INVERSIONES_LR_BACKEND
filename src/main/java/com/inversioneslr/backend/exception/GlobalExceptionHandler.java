@@ -21,6 +21,7 @@ import org.springframework.validation.BindException;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -144,6 +145,31 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(DatosReservaInvalidosException.class)
+    public ResponseEntity<ErrorResponse> manejarDatosReservaInvalidos(DatosReservaInvalidosException ex,
+                                                                      HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, MENSAJE_DATOS_INVALIDOS, request,
+                Map.of(ex.getCampo(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(FechasNoDisponiblesException.class)
+    public ResponseEntity<ErrorResponse> manejarFechasNoDisponibles(FechasNoDisponiblesException ex,
+                                                                    HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(CotizacionNoDisponibleException.class)
+    public ResponseEntity<ErrorResponse> manejarCotizacionNoDisponible(CotizacionNoDisponibleException ex,
+                                                                       HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(ClaveIdempotenciaReutilizadaException.class)
+    public ResponseEntity<ErrorResponse> manejarClaveIdempotenciaReutilizada(ClaveIdempotenciaReutilizadaException ex,
+                                                                             HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(AlojamientoNoDisponibleException.class)
     public ResponseEntity<ErrorResponse> manejarAlojamientoNoDisponible(AlojamientoNoDisponibleException ex, HttpServletRequest request) {
         return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
@@ -226,6 +252,10 @@ public class GlobalExceptionHandler {
         RequestParam requestParam = parametro.getParameterAnnotation(RequestParam.class);
         if (requestParam != null && !requestParam.name().isEmpty()) {
             return requestParam.name();
+        }
+        RequestHeader requestHeader = parametro.getParameterAnnotation(RequestHeader.class);
+        if (requestHeader != null && !requestHeader.name().isEmpty()) {
+            return requestHeader.name();
         }
         return parametro.getParameterName();
     }

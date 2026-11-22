@@ -2,10 +2,12 @@ package com.inversioneslr.backend.repository;
 
 import com.inversioneslr.backend.model.Publicacion;
 import com.inversioneslr.backend.model.enums.EstadoPublicacion;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -38,6 +40,15 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
 
     @EntityGraph(attributePaths = {"ciudad", "tipo", "politica"})
     Optional<Publicacion> findByIdPublicacionAndEstado(Long idPublicacion, EstadoPublicacion estado);
+
+    /**
+     * La publicación en el estado dado, con su fila bloqueada hasta el final de la transacción. Reservar entra
+     * de a una persona por publicación: quien llega después espera y ya ve el calendario que dejó el anterior.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Publicacion p WHERE p.idPublicacion = :idPublicacion AND p.estado = :estado")
+    Optional<Publicacion> bloquearPorIdYEstado(@Param("idPublicacion") Long idPublicacion,
+                                               @Param("estado") EstadoPublicacion estado);
 
     /**
      * La suma de noches disponibles es válida porque la base impide periodos
@@ -86,7 +97,7 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
                     SELECT 1
                     FROM reserva r
                     WHERE r.id_publicacion = p.id_publicacion
-                      AND r.estado IN ('CONFIRMADA', 'REVISION_MANUAL')
+                      AND r.estado IN ('PENDIENTE_PAGO', 'CONFIRMADA', 'REVISION_MANUAL')
                       AND r.fecha_llegada < CAST(:fechaSalida AS date)
                       AND r.fecha_salida > CAST(:fechaLlegada AS date)
                   )

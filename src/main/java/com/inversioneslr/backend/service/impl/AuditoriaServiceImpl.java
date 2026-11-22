@@ -18,6 +18,9 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 @Service
 public class AuditoriaServiceImpl implements AuditoriaService {
 
+    /** Nombre que aparece en el log cuando la acción no la ejecuta ningún usuario. */
+    static final String USUARIO_SISTEMA = "sistema";
+
     private static final Logger log = LoggerFactory.getLogger(AuditoriaServiceImpl.class);
 
     private final EventoAuditoriaRepository eventoAuditoriaRepository;
@@ -46,6 +49,20 @@ public class AuditoriaServiceImpl implements AuditoriaService {
                 kv("entidad", tipoEntidad),
                 kv("idEntidad", idEntidad),
                 kv("rol", usuario.getRol()),
+                kv("detalle", detalle));
+    }
+
+    @Override
+    public void registrarEventoDelSistema(AccionAuditoria accion, String tipoEntidad, String idEntidad,
+                                          String detalle) {
+        eventoAuditoriaRepository.save(
+                new EventoAuditoria(null, accion, tipoEntidad, idEntidad, ResultadoAuditoria.EXITOSO, detalle));
+        log.info("Evento de auditoria {} {}",
+                kv("accion", accion),
+                kv("resultado", ResultadoAuditoria.EXITOSO),
+                kv("usuario", USUARIO_SISTEMA),
+                kv("entidad", tipoEntidad),
+                kv("idEntidad", idEntidad),
                 kv("detalle", detalle));
     }
 

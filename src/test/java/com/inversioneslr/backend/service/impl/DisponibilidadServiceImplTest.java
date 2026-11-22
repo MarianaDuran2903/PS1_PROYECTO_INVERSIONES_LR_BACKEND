@@ -6,6 +6,7 @@ import com.inversioneslr.backend.dto.response.PublicacionResponse;
 import com.inversioneslr.backend.model.PeriodoDisponibilidad;
 import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.model.enums.Rol;
+import com.inversioneslr.backend.model.enums.TipoPeriodo;
 import com.inversioneslr.backend.repository.PeriodoDisponibilidadRepository;
 import com.inversioneslr.backend.security.UsuarioAutenticado;
 import com.inversioneslr.backend.service.PublicacionService;
@@ -49,7 +50,7 @@ class DisponibilidadServiceImplTest {
         when(periodo.getIdPeriodo()).thenReturn(2L);
         when(periodo.getFechaInicio()).thenReturn(LocalDate.parse("2026-03-01"));
         when(periodo.getFechaFin()).thenReturn(LocalDate.parse("2026-03-03"));
-        when(periodo.getTipo()).thenReturn("DISPONIBLE");
+        when(periodo.getTipo()).thenReturn(TipoPeriodo.DISPONIBLE);
 
         CalendarioDisponibilidadResponse respuesta =
                 new DisponibilidadServiceImpl(publicacionService, periodoRepository)
