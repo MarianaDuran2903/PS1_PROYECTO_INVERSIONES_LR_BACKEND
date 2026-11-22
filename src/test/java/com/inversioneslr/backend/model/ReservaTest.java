@@ -109,6 +109,54 @@ class ReservaTest {
     }
 
     @Test
+    void confirmar_unaReservaPendiente_quedaConfirmada() {
+        Reserva reserva = preReserva();
+
+        reserva.confirmar();
+
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+        assertThat(reserva.estaPendienteDePago()).isFalse();
+        // Conserva el plazo que tuvo como historial.
+        assertThat(reserva.getFechaExpiracion()).isEqualTo(VENCE);
+    }
+
+    @ParameterizedTest(name = "estado {0}")
+    @EnumSource(value = EstadoReserva.class, names = "PENDIENTE_PAGO", mode = EnumSource.Mode.EXCLUDE)
+    void confirmar_unaReservaQueNoEstaPendiente_noSePermite(EstadoReserva estado) {
+        Reserva reserva = preReserva();
+        ReflectionTestUtils.setField(reserva, "estado", estado);
+
+        assertThatThrownBy(reserva::confirmar)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(estado.name());
+        assertThat(reserva.getEstado()).isEqualTo(estado);
+    }
+
+    @Test
+    @DisplayName("Extender el plazo lo alarga, pero nunca lo acorta")
+    void extenderPlazoHasta_soloAlarga() {
+        Reserva reserva = preReserva();
+
+        reserva.extenderPlazoHasta(VENCE.plusMinutes(10));
+        assertThat(reserva.getFechaExpiracion()).isEqualTo(VENCE.plusMinutes(10));
+
+        reserva.extenderPlazoHasta(VENCE.plusMinutes(3));
+        assertThat(reserva.getFechaExpiracion()).isEqualTo(VENCE.plusMinutes(10));
+    }
+
+    @ParameterizedTest(name = "estado {0}")
+    @EnumSource(value = EstadoReserva.class, names = "PENDIENTE_PAGO", mode = EnumSource.Mode.EXCLUDE)
+    void extenderPlazoHasta_unaReservaQueNoEstaPendiente_noSePermite(EstadoReserva estado) {
+        Reserva reserva = preReserva();
+        ReflectionTestUtils.setField(reserva, "estado", estado);
+
+        assertThatThrownBy(() -> reserva.extenderPlazoHasta(VENCE.plusMinutes(10)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(estado.name());
+        assertThat(reserva.getFechaExpiracion()).isEqualTo(VENCE);
+    }
+
+    @Test
     @DisplayName("Vence en el instante exacto de la expiración, no antes")
     void estaVencida_comparaConElInstanteDeExpiracion() {
         Reserva reserva = preReserva();

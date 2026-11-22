@@ -164,6 +164,49 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(PagoNoPermitidoException.class)
+    public ResponseEntity<ErrorResponse> manejarPagoNoPermitido(PagoNoPermitidoException ex,
+                                                                HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(ReservaNoEncontradaException.class)
+    public ResponseEntity<ErrorResponse> manejarReservaNoEncontrada(ReservaNoEncontradaException ex,
+                                                                    HttpServletRequest request) {
+        return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(PagoNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarPagoNoEncontrado(PagoNoEncontradoException ex,
+                                                                 HttpServletRequest request) {
+        return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(ReservaAjenaException.class)
+    public ResponseEntity<ErrorResponse> manejarReservaAjena(ReservaAjenaException ex, HttpServletRequest request) {
+        return construir(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
+    }
+
+    /**
+     * La pasarela no responde o no está configurada. El detalle técnico queda en el log, no en la respuesta.
+     */
+    @ExceptionHandler(PasarelaNoDisponibleException.class)
+    public ResponseEntity<ErrorResponse> manejarPasarelaNoDisponible(PasarelaNoDisponibleException ex,
+                                                                     HttpServletRequest request) {
+        log.error("La pasarela de pagos no está disponible {} {}",
+                kv("accion", "PASARELA_NO_DISPONIBLE"),
+                kv("resultado", "FALLIDO"),
+                kv("ruta", request.getRequestURI()),
+                ex);
+        return construir(HttpStatus.BAD_GATEWAY, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(FirmaWebhookInvalidaException.class)
+    public ResponseEntity<ErrorResponse> manejarFirmaWebhookInvalida(FirmaWebhookInvalidaException ex,
+                                                                     HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(ClaveIdempotenciaReutilizadaException.class)
     public ResponseEntity<ErrorResponse> manejarClaveIdempotenciaReutilizada(ClaveIdempotenciaReutilizadaException ex,
                                                                              HttpServletRequest request) {

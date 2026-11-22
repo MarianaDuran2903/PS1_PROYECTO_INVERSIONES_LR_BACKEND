@@ -47,6 +47,24 @@ reservas:
     habilitada: ${RESERVA_EXPIRACION_HABILITADA:true}
     intervalo-ms: ${RESERVA_EXPIRACION_INTERVALO_MS:60000}
 
+pagos:
+  # Pago de reservas con Stripe Checkout, solo en modo de pruebas. Las claves van únicamente por variables de
+  # entorno; sin STRIPE_SECRET_KEY la aplicación arranca pero iniciar un pago responde 502.
+  moneda: ${PAGO_MONEDA:COP}
+  # Debe ser de al menos 31 minutos (Stripe exige 30 como mínimo).
+  minutos-sesion: ${PAGO_MINUTOS_SESION:35}
+  # Cuánto sobrevive la reserva a su sesión de pago, para que alcance a llegar el aviso del pago.
+  minutos-gracia: ${PAGO_MINUTOS_GRACIA:5}
+  intentos-maximos: ${PAGO_INTENTOS_MAXIMOS:3}
+  url-exito: ${PAGO_URL_EXITO:http://localhost:4200/reservas/{idReserva}/pago/resultado}
+  url-cancelacion: ${PAGO_URL_CANCELACION:http://localhost:4200/reservas/{idReserva}/pago/resultado?cancelado=true}
+  stripe:
+    # Clave secreta de prueba (sk_test_...). Una clave real (sk_live_...) impide arrancar.
+    clave-secreta: ${STRIPE_SECRET_KEY:}
+    # Secreto de firma del webhook (whsec_...), que entrega Stripe al crear el endpoint o con "stripe listen".
+    clave-webhook: ${STRIPE_WEBHOOK_SECRET:}
+    tolerancia-firma-segundos: ${STRIPE_TOLERANCIA_FIRMA_SEGUNDOS:300}
+
 server:
   port: ${SERVER_PORT:8080}
   error:
