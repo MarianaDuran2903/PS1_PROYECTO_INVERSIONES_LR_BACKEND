@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -186,6 +187,80 @@ class ConsultaCalendarioDisponibilidadIntegrationTest {
         assertThat(periodosDe(idPublicacion)).isZero();
     }
 
+    @Test
+    void cerrarPeriodo_propioDisponible_loMarcaNoOfrecidoYDejaDeSerReservable() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+        Long idPeriodo = insertarPeriodo(idPublicacion, null, "2026-06-10", "2026-06-13", "DISPONIBLE");
+
+        mockMvc.perform(patch(URL.formatted(idPublicacion) + "/" + idPeriodo + "/no-ofrecido")
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idPeriodo").value(idPeriodo))
+                .andExpect(jsonPath("$.tipo").value("NO_OFRECIDO"));
+
+        assertThat(tipoDelPeriodo(idPeriodo)).isEqualTo("NO_OFRECIDO");
+        assertThat(periodosDisponiblesEn(idPublicacion)).isZero();
+        mockMvc.perform(get(URL.formatted(idPublicacion))
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.periodos[0].tipo").value("NO_OFRECIDO"));
+    }
+
+    @Test
+    void cerrarPeriodo_reservado_noAfectaLaReservaConfirmada() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+        Long idReserva = insertarReserva(huesped, idPublicacion);
+        Long idPeriodo = insertarPeriodo(idPublicacion, idReserva, "2026-03-05", "2026-03-07", "RESERVADO");
+
+        mockMvc.perform(patch(URL.formatted(idPublicacion) + "/" + idPeriodo + "/no-ofrecido")
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion)))
+                .andExpect(status().isConflict());
+
+        assertThat(tipoDelPeriodo(idPeriodo)).isEqualTo("RESERVADO");
+        assertThat(jdbcTemplate.queryForObject("SELECT estado FROM reserva WHERE id_reserva = ?",
+                String.class, idReserva)).isEqualTo("CONFIRMADA");
+    }
+
+    @Test
+    void cerrarPeriodo_publicacionAjena_responde403() throws Exception {
+        Long idPublicacion = insertarPublicacion(otroAnfitrion, "Casa ajena");
+        Long idPeriodo = insertarPeriodo(idPublicacion, null, "2026-06-10", "2026-06-13", "DISPONIBLE");
+
+        mockMvc.perform(patch(URL.formatted(idPublicacion) + "/" + idPeriodo + "/no-ofrecido")
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion)))
+                .andExpect(status().isForbidden());
+        assertThat(tipoDelPeriodo(idPeriodo)).isEqualTo("DISPONIBLE");
+    }
+
+    @Test
+    void cerrarPeriodo_publicacionBloqueada_responde409() throws Exception {
+        Long idPublicacion = insertarPublicacion(anfitrion, "Casa propia");
+        Long idPeriodo = insertarPeriodo(idPublicacion, null, "2026-06-10", "2026-06-13", "DISPONIBLE");
+        jdbcTemplate.update("UPDATE publicacion SET estado = 'BLOQUEADA', motivo_bloqueo = ? WHERE id_publicacion = ?",
+                "Motivo de prueba", idPublicacion);
+
+        mockMvc.perform(patch(URL.formatted(idPublicacion) + "/" + idPeriodo + "/no-ofrecido")
+                        .header(HttpHeaders.AUTHORIZATION, token(anfitrion)))
+                .andExpect(status().isConflict());
+        assertThat(tipoDelPeriodo(idPeriodo)).isEqualTo("DISPONIBLE");
+    }
+
+    @Test
+    void cerrarPeriodo_sinToken_responde401() throws Exception {
+        mockMvc.perform(patch(URL.formatted(1) + "/1/no-ofrecido"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private int periodosDisponiblesEn(Long idPublicacion) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM periodo_disponibilidad WHERE id_publicacion = ? AND tipo = 'DISPONIBLE'",
+                Integer.class, idPublicacion);
+    }
+
+    private String tipoDelPeriodo(Long idPeriodo) {
+        return jdbcTemplate.queryForObject("SELECT tipo FROM periodo_disponibilidad WHERE id_periodo = ?",
+                String.class, idPeriodo);
+    }
+
     private int periodosDe(Long idPublicacion) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM periodo_disponibilidad WHERE id_publicacion = ?",
@@ -221,18 +296,20 @@ class ConsultaCalendarioDisponibilidadIntegrationTest {
                 """, Long.class, huesped.getIdUsuario(), idPublicacion);
     }
 
-    private void insertarPeriodo(
+    private Long insertarPeriodo(
             Long idPublicacion,
             Long idReserva,
             String inicio,
             String fin,
             String tipo
     ) {
-        jdbcTemplate.update("""
+        return jdbcTemplate.queryForObject("""
                 INSERT INTO periodo_disponibilidad
                     (id_publicacion, id_reserva, fecha_inicio, fecha_fin, tipo)
                 VALUES (?, ?, ?, ?, ?)
+                RETURNING id_periodo
                 """,
+                Long.class,
                 idPublicacion,
                 idReserva,
                 Date.valueOf(LocalDate.parse(inicio)),

@@ -14,4 +14,7 @@ public interface DisponibilidadService {
 
     PeriodoDisponibilidadResponse abrirPeriodoPropio(Long idPublicacion,
             AbrirPeriodoDisponibilidadRequest request, UsuarioAutenticado anfitrion);
+
+    PeriodoDisponibilidadResponse cerrarPeriodoPropio(Long idPublicacion, Long idPeriodo,
+                                                       UsuarioAutenticado anfitrion);
 }

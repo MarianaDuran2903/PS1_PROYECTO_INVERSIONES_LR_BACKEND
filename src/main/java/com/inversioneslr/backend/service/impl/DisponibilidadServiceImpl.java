@@ -6,7 +6,10 @@ import com.inversioneslr.backend.dto.response.PublicacionResponse;
 import com.inversioneslr.backend.dto.request.AbrirPeriodoDisponibilidadRequest;
 import com.inversioneslr.backend.exception.EstadoNoEditableException;
 import com.inversioneslr.backend.exception.FechasNoDisponiblesException;
+import com.inversioneslr.backend.exception.PublicacionNoEncontradaException;
 import com.inversioneslr.backend.model.PeriodoDisponibilidad;
+import com.inversioneslr.backend.model.Publicacion;
+import com.inversioneslr.backend.model.enums.TipoPeriodo;
 import com.inversioneslr.backend.model.enums.EstadoPublicacion;
 import com.inversioneslr.backend.repository.PublicacionRepository;
 import com.inversioneslr.backend.repository.PeriodoDisponibilidadRepository;
@@ -71,6 +74,30 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         var publicacion = publicacionRepository.getReferenceById(idPublicacion);
         PeriodoDisponibilidad periodo = PeriodoDisponibilidad.disponible(
                 publicacion, request.fechaInicio(), request.fechaFin());
+        return PeriodoDisponibilidadResponse.desde(periodoRepository.saveAndFlush(periodo));
+    }
+
+    @Override
+    @Transactional
+    public PeriodoDisponibilidadResponse cerrarPeriodoPropio(Long idPublicacion, Long idPeriodo,
+                                                              UsuarioAutenticado anfitrion) {
+        publicacionService.obtenerPropia(idPublicacion, anfitrion);
+
+        // Usa el mismo bloqueo de publicación que la reserva: se vuelve a validar el periodo tras esperar
+        // cualquier reserva concurrente, evitando cerrar fechas recién ocupadas.
+        Publicacion publicacion = publicacionRepository.bloquearPorId(idPublicacion)
+                .orElseThrow(PublicacionNoEncontradaException::new);
+        if (publicacion.getEstado() == EstadoPublicacion.BLOQUEADA) {
+            throw new EstadoNoEditableException(publicacion.getEstado());
+        }
+
+        PeriodoDisponibilidad periodo = periodoRepository
+                .bloquearPorIdYPublicacion(idPeriodo, idPublicacion)
+                .orElseThrow(FechasNoDisponiblesException::new);
+        if (periodo.getTipo() != TipoPeriodo.DISPONIBLE || periodo.getReserva() != null) {
+            throw new FechasNoDisponiblesException();
+        }
+        periodo.cerrarComoNoOfrecido();
         return PeriodoDisponibilidadResponse.desde(periodoRepository.saveAndFlush(periodo));
     }
 }

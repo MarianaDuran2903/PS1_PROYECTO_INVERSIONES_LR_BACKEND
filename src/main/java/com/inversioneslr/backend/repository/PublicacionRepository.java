@@ -42,6 +42,14 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
     Optional<Publicacion> findByIdPublicacionAndEstado(Long idPublicacion, EstadoPublicacion estado);
 
     /**
+     * Bloquea una publicación, cualquiera que sea su estado, para serializar cambios de disponibilidad con
+     * la creación de reservas, que usa el mismo bloqueo.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Publicacion p WHERE p.idPublicacion = :idPublicacion")
+    Optional<Publicacion> bloquearPorId(@Param("idPublicacion") Long idPublicacion);
+
+    /**
      * La publicación en el estado dado, con su fila bloqueada hasta el final de la transacción. Reservar entra
      * de a una persona por publicación: quien llega después espera y ya ve el calendario que dejó el anterior.
      */

@@ -2,7 +2,9 @@ package com.inversioneslr.backend.repository;
 
 import com.inversioneslr.backend.model.PeriodoDisponibilidad;
 import com.inversioneslr.backend.model.enums.TipoPeriodo;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -48,6 +50,18 @@ public interface PeriodoDisponibilidadRepository extends JpaRepository<PeriodoDi
     boolean existeSolape(@Param("idPublicacion") Long idPublicacion,
                          @Param("fechaInicio") LocalDate fechaInicio,
                          @Param("fechaFin") LocalDate fechaFin);
+
+    /**
+     * Bloquea el tramo solicitado durante la transacción y lo limita a la publicación indicada.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT p FROM PeriodoDisponibilidad p
+            WHERE p.idPeriodo = :idPeriodo
+              AND p.publicacion.idPublicacion = :idPublicacion
+            """)
+    Optional<PeriodoDisponibilidad> bloquearPorIdYPublicacion(@Param("idPeriodo") Long idPeriodo,
+                                                              @Param("idPublicacion") Long idPublicacion);
 
     /**
      * El tramo RESERVADO que una reserva ocupa, si lo tiene.
